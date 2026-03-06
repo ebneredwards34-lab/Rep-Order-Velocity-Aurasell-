@@ -1074,6 +1074,9 @@ const ACCOUNTS_RAW = [
 // ============================================================
 function computeScore(a) {
   let pts = 0;
+  // Opportunity stage
+  const stageScore = { 'Negotiation': 15, 'Proposal': 11, 'Qualified': 7, 'Prospect': 3, 'Closed': 0 };
+  pts += stageScore[a.opportunityStage] || 3;
   // Lease expiration
   if (a.leaseExpirationMonths <= 6) pts += 25;
   else if (a.leaseExpirationMonths <= 12) pts += 20;
@@ -1149,28 +1152,47 @@ const ACCOUNTS = ACCOUNTS_RAW.map(a => {
   const score = computeScore(a);
   const probability = Math.round(100 / (1 + Math.exp(-0.08 * (score - 55))));
   const recommendedAction = getRecommendedAction(a, score);
-  return { ...a, score, probability, recommendedAction };
+  const monthlyMRR = Math.round(a.dealSizeEstimate * 0.08);
+  return { ...a, score, probability, recommendedAction, monthlyMRR };
 }).sort((a,b) => b.score - a.score);
 
 // ============================================================
 // ORDER VELOCITY MODEL
 // ============================================================
 function computeVelocityForAccounts(accounts) {
-  const qualified = accounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage));
-  if (!qualified.length) return { best: 0, base: 0, worst: 0 };
-  const probs = qualified.map(a => a.probability / 100);
-  probs.sort((a,b) => b - a);
-  const q3Idx = Math.floor(probs.length * 0.25);
-  const q1Idx = Math.floor(probs.length * 0.75);
-  const topQ = probs.slice(0, q3Idx + 1);
-  const botQ = probs.slice(q1Idx);
-  const avgProb = probs.reduce((s,p) => s + p, 0) / probs.length;
-  const topAvg = topQ.reduce((s,p) => s + p, 0) / topQ.length;
-  const botAvg = botQ.reduce((s,p) => s + p, 0) / botQ.length;
-  const best = parseFloat((topAvg * qualified.length * 0.7).toFixed(1));
-  const base = parseFloat((avgProb * qualified.length * 0.5).toFixed(1));
-  const worst = parseFloat((botAvg * qualified.length * 0.3).toFixed(1));
-  return { best, base, worst };
+  const stageRates = { 'Negotiation': 0.72, 'Proposal': 0.38, 'Qualified': 0.18 };
+  const active = accounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage));
+  if (!active.length) return { best: 0, base: 0, worst: 0, weightedMRR: 0 };
+
+  const baseOrders = active.reduce((sum, a) => {
+    const stageRate = stageRates[a.opportunityStage] || 0.2;
+    return sum + (a.probability / 100) * stageRate;
+  }, 0);
+
+  const sorted = [...active].sort((a, b) => b.probability - a.probability);
+  const topQ = sorted.slice(0, Math.max(1, Math.ceil(sorted.length * 0.25)));
+  const bestOrders = topQ.reduce((sum, a) => {
+    const stageRate = Math.min(0.95, (stageRates[a.opportunityStage] || 0.2) * 1.2);
+    return sum + (a.probability / 100) * stageRate;
+  }, 0) + baseOrders * 0.4;
+
+  const botQ = sorted.slice(Math.floor(sorted.length * 0.75));
+  const worstOrders = botQ.reduce((sum, a) => {
+    const stageRate = (stageRates[a.opportunityStage] || 0.2) * 0.7;
+    return sum + (a.probability / 100) * stageRate;
+  }, 0);
+
+  const weightedMRR = active.reduce((sum, a) => {
+    const stageRate = stageRates[a.opportunityStage] || 0.2;
+    return sum + a.monthlyMRR * (a.probability / 100) * stageRate;
+  }, 0);
+
+  return {
+    best: parseFloat(bestOrders.toFixed(1)),
+    base: parseFloat(baseOrders.toFixed(1)),
+    worst: parseFloat(worstOrders.toFixed(1)),
+    weightedMRR: Math.round(weightedMRR)
+  };
 }
 
 // ============================================================
@@ -2263,11 +2285,11 @@ function updateSimulation() {
   // Compute multiplier from stored defaults
   const dCR = (SIM_DEFAULTS.contactRate || 60) / 100;
   const dQS = (SIM_DEFAULTS.qualityScore || 55) / 100;
-  const dCP = (1 - (SIM_DEFAULTS.competitivePressure || 40) / 100) * 0.6;
+  const dCP = (1 - (SIM_DEFAULTS.competitivePressure || 40) / 100);
   const dRA = (SIM_DEFAULTS.repActivity || 70) / 100;
   const dMD = (SIM_DEFAULTS.marketDemand || 65) / 100;
   const baselineMultiplier = (dCR + dQS + dCP + dRA + dMD) / 5;
-  const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100)*0.6 + ra/100 + md/100) / 5;
+  const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100) + ra/100 + md/100) / 5;
   const ratio = currentMultiplier / baselineMultiplier;
 
   const simBase = parseFloat((SIM_BASELINE.base * ratio).toFixed(1));
@@ -2420,7 +2442,7 @@ async function sendChatMessage() {
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
         system: buildSystemPrompt(),
         messages: conversationHistory
