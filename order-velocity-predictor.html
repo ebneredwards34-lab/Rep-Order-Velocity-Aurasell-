@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurasell AI - Order Velocity Predictor | Xerox CRM Intelligence</title>
+<style>
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a2235;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-orange: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-purple: #8b5cf6;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border: #1e293b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #0a0e1a 0%, #111827 50%, #0f172a 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: white;
+  box-shadow: 0 0 16px rgba(59,130,246,0.5);
+}
+.brand-text h1 {
+  font-size: 16px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #f1f5f9, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.brand-text p { font-size: 11px; color: var(--text-secondary); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.last-refresh {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.refresh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+}
+.rep-selector {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.rep-selector:hover, .rep-selector:focus { border-color: var(--accent-blue); }
+.btn-export {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 12px rgba(59,130,246,0.3);
+}
+.btn-export:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(59,130,246,0.5);
+}
+/* NAVIGATION */
+.nav {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.nav-tab {
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.nav-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+.nav-tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); background: rgba(59,130,246,0.05); }
+.nav-tab-icon { font-size: 15px; }
+/* MAIN CONTENT */
+.main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+.tab-content { display: none; animation: fadeIn 0.3s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+/* CARDS */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover { border-color: rgba(59,130,246,0.2); box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+/* KPI CARDS */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kpi-color, var(--accent-blue));
+}
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  background: radial-gradient(circle, var(--kpi-color, var(--accent-blue)) 0%, transparent 70%);
+  opacity: 0.08;
+  border-radius: 50%;
+  transform: translate(20px, -20px);
+}
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.kpi-value span { font-size: 18px; font-weight: 600; }
+.kpi-change {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 24px;
+  opacity: 0.4;
+}
+/* GRID LAYOUTS */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+/* TABLES */
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+th:hover { color: var(--text-primary); }
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(30,41,59,0.5);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.expandable-row { cursor: pointer; }
+tr.expanded-detail td {
+  background: rgba(59,130,246,0.04);
+  border-bottom: 1px solid var(--border);
+}
+/* BADGES */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.badge-green { background: rgba(16,185,129,0.15); color: #34d399; }
+.badge-orange { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.badge-red { background: rgba(239,68,68,0.15); color: #f87171; }
+.badge-purple { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.badge-gray { background: rgba(148,163,184,0.15); color: #94a3b8; }
+/* SCORE BAR */
+.score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.score-bar {
+  flex: 1;
+  min-width: 80px;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s ease;
+  position: relative;
+}
+.score-val { font-size: 12px; font-weight: 700; min-width: 30px; text-align: right; }
+/* SEARCH */
+.search-bar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  width: 280px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-bar:focus { border-color: var(--accent-blue); }
+/* PROGRESS BARS ANIMATED */
+@keyframes bar-grow { from { width: 0; } to { width: var(--bar-w); } }
+/* TOOLTIPS */
+.tooltip-wrap { position: relative; }
+.tooltip-wrap:hover .tooltip-box { display: block; }
+.tooltip-box {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  z-index: 200;
+  width: 220px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.tooltip-box::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #0f172a;
+}
+.tooltip-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; }
+.tooltip-row:last-child { margin-bottom: 0; }
+/* SKELETON */
+.skeleton { background: linear-gradient(90deg, #1a2235 25%, #232d42 50%, #1a2235 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+/* SECTION TITLE */
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.section-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+/* RISK CARDS */
+.risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.risk-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  border-left: 3px solid var(--risk-color, var(--accent-orange));
+  transition: transform 0.2s;
+}
+.risk-card:hover { transform: translateX(4px); }
+.risk-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.risk-name { font-size: 13px; font-weight: 600; }
+.risk-reason { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; }
+.risk-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+/* INSIGHT CARDS */
+.insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.insight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  gap: 14px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.insight-card:hover { transform: translateY(-2px); border-color: rgba(59,130,246,0.3); }
+.insight-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.insight-body { flex: 1; }
+.insight-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.insight-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; }
+.insight-accounts { font-size: 11px; color: var(--accent-blue); margin-bottom: 8px; }
+.insight-action {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* SIMULATION */
+.sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.slider-group { margin-bottom: 20px; }
+.slider-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+.slider-label span { font-weight: 700; color: var(--accent-blue); }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(59,130,246,0.5);
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+/* FUNNEL */
+.funnel-wrap { padding: 10px 0; }
+/* REP PERF */
+.rep-bar-row { margin-bottom: 14px; }
+.rep-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.rep-bar-track { height: 28px; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden; position: relative; display: flex; }
+.rep-bar-pred {
+  height: 100%;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+}
+.rep-bar-target {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent-orange);
+}
+/* PIPELINE CARD */
+.pipeline-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  transition: transform 0.2s;
+}
+.pipeline-card:hover { transform: translateY(-2px); }
+.pipeline-rep { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.pipeline-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.pipeline-stat-label { font-size: 11px; color: var(--text-secondary); }
+.pipeline-stat-val { font-size: 18px; font-weight: 700; }
+/* ACTION BADGE */
+.action-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-block;
+}
+/* VELOCITY DISPLAY */
+.velocity-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 10px 0;
+}
+.velocity-case { text-align: center; }
+.velocity-case-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+.velocity-case-val { font-size: 28px; font-weight: 800; }
+.velocity-case-val.best { color: var(--accent-green); }
+.velocity-case-val.base { color: var(--accent-blue); }
+.velocity-case-val.worst { color: var(--accent-orange); }
+.velocity-divider { width: 1px; height: 50px; background: var(--border); }
+/* DELTA */
+.delta-pos { color: var(--accent-green); }
+.delta-neg { color: var(--accent-red); }
+/* TOP OPP TABLE */
+.rank-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.rank-1 { background: linear-gradient(135deg,#f59e0b,#d97706); color: #fff; }
+.rank-2 { background: linear-gradient(135deg,#94a3b8,#64748b); color: #fff; }
+.rank-3 { background: linear-gradient(135deg,#cd7c2f,#b45309); color: #fff; }
+.rank-other { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+/* EXPANDED DETAIL */
+.signal-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 0; }
+.signal-item { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 8px 10px; }
+.signal-item-label { font-size: 10px; color: var(--text-secondary); margin-bottom: 3px; }
+.signal-item-val { font-size: 13px; font-weight: 700; }
+/* GLOW EFFECTS */
+.glow-blue { text-shadow: 0 0 20px rgba(59,130,246,0.5); }
+.glow-green { text-shadow: 0 0 20px rgba(16,185,129,0.5); }
+.glow-orange { text-shadow: 0 0 20px rgba(245,158,11,0.5); }
+/* SIM RESULT */
+.sim-result-box {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+}
+.sim-result-title { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+.sim-big-val { font-size: 48px; font-weight: 900; color: var(--accent-blue); line-height: 1; margin-bottom: 6px; }
+.sim-delta { font-size: 14px; font-weight: 600; }
+.sim-bars { margin-top: 20px; }
+.sim-bar-row { margin-bottom: 12px; }
+.sim-bar-label-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.sim-bar-track { height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden; }
+.sim-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+/* SPARKLINE */
+.sparkline { display: inline-flex; align-items: flex-end; gap: 2px; height: 20px; }
+.spark-bar { width: 4px; border-radius: 2px 2px 0 0; background: var(--accent-blue); }
+/* ACTIVE STATE HIGHLIGHT */
+.active-rep-highlight { border-color: rgba(59,130,246,0.4) !important; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-brand">
+    <div class="brand-logo">AX</div>
+    <div class="brand-text">
+      <h1>Aurasell AI &mdash; Order Velocity Predictor</h1>
+      <p>Xerox Enterprise CRM Intelligence Platform &bull; Sales Forecasting Module</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="last-refresh">
+      <div class="refresh-dot"></div>
+      <span id="lastRefresh">Last refreshed: --</span>
+    </div>
+    <select class="rep-selector" id="repSelector" onchange="filterByRep(this.value)">
+      <option value="all">All Reps</option>
+      <option value="Sarah Chen">Sarah Chen</option>
+      <option value="Marcus Thompson">Marcus Thompson</option>
+      <option value="Priya Patel">Priya Patel</option>
+      <option value="James Rodriguez">James Rodriguez</option>
+      <option value="Emily Watson">Emily Watson</option>
+    </select>
+    <button class="btn-export" onclick="exportReport()">&#8595; Export Report</button>
+  </div>
+</header>
+
+<!-- NAVIGATION -->
+<nav class="nav">
+  <div class="nav-tab active" onclick="switchTab('rep-dashboard', this)">
+    <span class="nav-tab-icon">&#9685;</span> Rep Dashboard
+  </div>
+  <div class="nav-tab" onclick="switchTab('account-intel', this)">
+    <span class="nav-tab-icon">&#128202;</span> Account Intelligence
+  </div>
+  <div class="nav-tab" onclick="switchTab('manager-view', this)">
+    <span class="nav-tab-icon">&#128101;</span> Manager View
+  </div>
+  <div class="nav-tab" onclick="switchTab('ai-insights', this)">
+    <span class="nav-tab-icon">&#9889;</span> AI Insights
+  </div>
+  <div class="nav-tab" onclick="switchTab('simulation', this)">
+    <span class="nav-tab-icon">&#127919;</span> Simulation
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ============================
+     TAB 1: REP DASHBOARD
+     ============================ -->
+<div id="tab-rep-dashboard" class="tab-content active">
+  <div id="skeleton-rep" style="display:none;">
+    <div class="kpi-grid">
+      <div class="skeleton" style="height:120px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:120px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:120px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:120px;border-radius:12px;"></div>
+    </div>
+    <div class="skeleton" style="height:280px;border-radius:12px;margin-bottom:20px;"></div>
+  </div>
+
+  <div id="content-rep">
+    <!-- KPI CARDS -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- VELOCITY + FUNNEL -->
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">&#128200; Order Velocity Forecast</div>
+            <div class="card-subtitle">Best / Base / Worst case scenarios</div>
+          </div>
+        </div>
+        <div id="velocityGaugeWrap"></div>
+        <div id="velocityBars"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">&#9651; Pipeline Funnel</div>
+            <div class="card-subtitle">Opportunity stages distribution</div>
+          </div>
+        </div>
+        <div id="pipelineFunnel"></div>
+      </div>
+    </div>
+
+    <!-- TOP 10 PRIORITY ACCOUNTS -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">&#11088; Top 10 Priority Accounts</div>
+          <div class="card-subtitle">Ranked by AI opportunity score</div>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Account</th>
+              <th>Industry</th>
+              <th>Score</th>
+              <th>Win Prob</th>
+              <th>Deal Size</th>
+              <th>Recommended Action</th>
+              <th>Stage</th>
+            </tr>
+          </thead>
+          <tbody id="top10Body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RISK MONITOR -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">&#9888; Opportunity Risk Monitor</div>
+          <div class="card-subtitle">Deals requiring immediate attention</div>
+        </div>
+      </div>
+      <div class="risk-grid" id="riskGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
+     TAB 2: ACCOUNT INTELLIGENCE
+     ============================ -->
+<div id="tab-account-intel" class="tab-content">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <div>
+      <div class="section-title">Account Intelligence</div>
+      <div class="section-sub">Full signal breakdown across all 35 accounts. Click a row to expand.</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <input type="text" class="search-bar" placeholder="&#128269; Search accounts..." id="accountSearch" oninput="filterAccounts()">
+      <select class="rep-selector" id="stageFilter" onchange="filterAccounts()">
+        <option value="">All Stages</option>
+        <option>Prospect</option>
+        <option>Qualified</option>
+        <option>Proposal</option>
+        <option>Negotiation</option>
+        <option>Closed</option>
+      </select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortAccounts('accountName')">Account &#8597;</th>
+            <th onclick="sortAccounts('industry')">Industry &#8597;</th>
+            <th onclick="sortAccounts('deviceFleetSize')">Fleet &#8597;</th>
+            <th onclick="sortAccounts('leaseExpirationMonths')">Lease Exp &#8597;</th>
+            <th onclick="sortAccounts('score')">Score &#8597;</th>
+            <th onclick="sortAccounts('probability')">Win Prob &#8597;</th>
+            <th onclick="sortAccounts('dealSizeEstimate')">Deal $K &#8597;</th>
+            <th onclick="sortAccounts('opportunityStage')">Stage &#8597;</th>
+            <th onclick="sortAccounts('repAssigned')">Rep &#8597;</th>
+            <th onclick="sortAccounts('lastContactDays')">Last Contact &#8597;</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="accountTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
+     TAB 3: MANAGER VIEW
+     ============================ -->
+<div id="tab-manager-view" class="tab-content">
+  <div class="section-title">Manager View</div>
+  <div class="section-sub">Team performance overview and pipeline health analysis</div>
+
+  <div class="grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">&#127942; Rep Performance Comparison</div>
+          <div class="card-subtitle">Predicted orders vs 9 order target</div>
+        </div>
+      </div>
+      <div id="repPerfBars"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">&#127919; Team Order Velocity Forecast</div>
+          <div class="card-subtitle">Combined team pipeline scenarios</div>
+        </div>
+      </div>
+      <div id="teamVelocity"></div>
+      <div id="probDistChart" style="margin-top:20px;"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header">
+      <div class="card-title">&#128202; Pipeline Health by Rep</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;" id="pipelineHealthCards"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">&#11088; Top Opportunities Across Team</div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th><th>Account</th><th>Rep</th><th>Score</th>
+            <th>Win Prob</th><th>Deal $K</th><th>Stage</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="teamTopOppBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
+     TAB 4: AI INSIGHTS
+     ============================ -->
+<div id="tab-ai-insights" class="tab-content">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+    <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(59,130,246,0.4);">&#9889;</div>
+    <div>
+      <div class="section-title">AI Sales Intelligence Insights</div>
+      <div class="section-sub">Aurasell AI-generated recommendations based on real-time signal analysis</div>
+    </div>
+  </div>
+  <div class="insight-grid" id="insightGrid"></div>
+</div>
+
+<!-- ============================
+     TAB 5: SIMULATION
+     ============================ -->
+<div id="tab-simulation" class="tab-content">
+  <div class="section-title">Order Velocity Simulation</div>
+  <div class="section-sub">Adjust parameters to model different market and activity scenarios</div>
+
+  <div class="sim-grid">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:20px;">&#127909; Simulation Parameters</div>
+
+      <div class="slider-group">
+        <div class="slider-label">Contact Rate <span id="val-contactRate">60%</span></div>
+        <input type="range" min="0" max="100" value="60" id="contactRate" oninput="updateSimulation()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">Deal Qualification Quality <span id="val-qualityScore">55%</span></div>
+        <input type="range" min="0" max="100" value="55" id="qualityScore" oninput="updateSimulation()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">Competitive Pressure Index <span id="val-competitivePressure">40%</span></div>
+        <input type="range" min="0" max="100" value="40" id="competitivePressure" oninput="updateSimulation()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">Rep Activity Level <span id="val-repActivity">70%</span></div>
+        <input type="range" min="0" max="100" value="70" id="repActivity" oninput="updateSimulation()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">Market Demand Signal <span id="val-marketDemand">65%</span></div>
+        <input type="range" min="0" max="100" value="65" id="marketDemand" oninput="updateSimulation()">
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="sim-result-title">SIMULATED ORDER VELOCITY</div>
+        <div class="sim-big-val" id="simPredOrders">--</div>
+        <div class="sim-delta" id="simDelta"></div>
+        <div class="sim-bars" id="simBars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px;">&#128200; Scenario Impact Visualization</div>
+        <div id="simImpactChart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ============================================================
+// MOCK DATA - 35 ACCOUNTS
+// ============================================================
+const REPS = ['Sarah Chen','Marcus Thompson','Priya Patel','James Rodriguez','Emily Watson'];
+
+const ACCOUNTS_RAW = [
+  {id:1, accountName:'Pinnacle Financial Group', industry:'Finance', deviceFleetSize:120, competitorPresence:true, leaseExpirationMonths:5, deviceAge:6, printVolumeTrend:'increasing', serviceTicketFrequency:'high', customerSatisfactionScore:7, lastContactDays:4, opportunityStage:'Negotiation', dealSizeEstimate:285, repAssigned:'Sarah Chen'},
+  {id:2, accountName:'Metro Health Systems', industry:'Healthcare', deviceFleetSize:85, competitorPresence:true, leaseExpirationMonths:4, deviceAge:5, printVolumeTrend:'increasing', serviceTicketFrequency:'high', customerSatisfactionScore:6, lastContactDays:3, opportunityStage:'Proposal', dealSizeEstimate:320, repAssigned:'Marcus Thompson'},
+  {id:3, accountName:'Cascade Legal Partners', industry:'Legal', deviceFleetSize:42, competitorPresence:false, leaseExpirationMonths:3, deviceAge:7, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:8, lastContactDays:6, opportunityStage:'Proposal', dealSizeEstimate:145, repAssigned:'Priya Patel'},
+  {id:4, accountName:'TechCore Manufacturing', industry:'Manufacturing', deviceFleetSize:210, competitorPresence:true, leaseExpirationMonths:7, deviceAge:4, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:9, opportunityStage:'Qualified', dealSizeEstimate:440, repAssigned:'James Rodriguez'},
+  {id:5, accountName:'Horizon Real Estate', industry:'Real Estate', deviceFleetSize:35, competitorPresence:false, leaseExpirationMonths:11, deviceAge:3, printVolumeTrend:'flat', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:12, opportunityStage:'Prospect', dealSizeEstimate:90, repAssigned:'Emily Watson'},
+  {id:6, accountName:'Summit University', industry:'Education', deviceFleetSize:380, competitorPresence:true, leaseExpirationMonths:6, deviceAge:6, printVolumeTrend:'flat', serviceTicketFrequency:'high', customerSatisfactionScore:6, lastContactDays:5, opportunityStage:'Negotiation', dealSizeEstimate:680, repAssigned:'Sarah Chen'},
+  {id:7, accountName:'Pacific Logistics Co', industry:'Logistics', deviceFleetSize:65, competitorPresence:false, leaseExpirationMonths:2, deviceAge:8, printVolumeTrend:'increasing', serviceTicketFrequency:'high', customerSatisfactionScore:5, lastContactDays:2, opportunityStage:'Proposal', dealSizeEstimate:175, repAssigned:'Marcus Thompson'},
+  {id:8, accountName:'NovaTech Solutions', industry:'Technology', deviceFleetSize:140, competitorPresence:true, leaseExpirationMonths:8, deviceAge:3, printVolumeTrend:'increasing', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:7, opportunityStage:'Qualified', dealSizeEstimate:295, repAssigned:'Priya Patel'},
+  {id:9, accountName:'Riverside Medical Clinic', industry:'Healthcare', deviceFleetSize:28, competitorPresence:true, leaseExpirationMonths:4, deviceAge:5, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:11, opportunityStage:'Proposal', dealSizeEstimate:98, repAssigned:'James Rodriguez'},
+  {id:10, accountName:'Apex Insurance Group', industry:'Insurance', deviceFleetSize:95, competitorPresence:false, leaseExpirationMonths:14, deviceAge:4, printVolumeTrend:'declining', serviceTicketFrequency:'low', customerSatisfactionScore:8, lastContactDays:21, opportunityStage:'Qualified', dealSizeEstimate:210, repAssigned:'Emily Watson'},
+  {id:11, accountName:'BlueSky Architects', industry:'Architecture', deviceFleetSize:22, competitorPresence:false, leaseExpirationMonths:18, deviceAge:2, printVolumeTrend:'increasing', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:15, opportunityStage:'Prospect', dealSizeEstimate:65, repAssigned:'Sarah Chen'},
+  {id:12, accountName:'GovServ County Office', industry:'Government', deviceFleetSize:320, competitorPresence:true, leaseExpirationMonths:1, deviceAge:9, printVolumeTrend:'flat', serviceTicketFrequency:'high', customerSatisfactionScore:5, lastContactDays:4, opportunityStage:'Negotiation', dealSizeEstimate:750, repAssigned:'Marcus Thompson'},
+  {id:13, accountName:'Sterling Pharma Labs', industry:'Pharmaceutical', deviceFleetSize:180, competitorPresence:true, leaseExpirationMonths:5, deviceAge:5, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:8, lastContactDays:8, opportunityStage:'Proposal', dealSizeEstimate:395, repAssigned:'Priya Patel'},
+  {id:14, accountName:'Frontier Energy Corp', industry:'Energy', deviceFleetSize:145, competitorPresence:false, leaseExpirationMonths:10, deviceAge:6, printVolumeTrend:'flat', serviceTicketFrequency:'low', customerSatisfactionScore:7, lastContactDays:18, opportunityStage:'Qualified', dealSizeEstimate:330, repAssigned:'James Rodriguez'},
+  {id:15, accountName:'Capital City Bank', industry:'Finance', deviceFleetSize:230, competitorPresence:true, leaseExpirationMonths:3, deviceAge:7, printVolumeTrend:'declining', serviceTicketFrequency:'high', customerSatisfactionScore:6, lastContactDays:5, opportunityStage:'Proposal', dealSizeEstimate:520, repAssigned:'Emily Watson'},
+  {id:16, accountName:'Meridian Retail Chain', industry:'Retail', deviceFleetSize:90, competitorPresence:false, leaseExpirationMonths:16, deviceAge:3, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:8, lastContactDays:28, opportunityStage:'Prospect', dealSizeEstimate:180, repAssigned:'Sarah Chen'},
+  {id:17, accountName:'Quantum Data Centers', industry:'Technology', deviceFleetSize:55, competitorPresence:true, leaseExpirationMonths:7, deviceAge:4, printVolumeTrend:'increasing', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:6, opportunityStage:'Qualified', dealSizeEstimate:155, repAssigned:'Marcus Thompson'},
+  {id:18, accountName:'Hillside Community Hospital', industry:'Healthcare', deviceFleetSize:165, competitorPresence:false, leaseExpirationMonths:9, deviceAge:5, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:13, opportunityStage:'Proposal', dealSizeEstimate:365, repAssigned:'Priya Patel'},
+  {id:19, accountName:'Ironclad Construction', industry:'Construction', deviceFleetSize:48, competitorPresence:true, leaseExpirationMonths:6, deviceAge:8, printVolumeTrend:'flat', serviceTicketFrequency:'high', customerSatisfactionScore:5, lastContactDays:22, opportunityStage:'Prospect', dealSizeEstimate:120, repAssigned:'James Rodriguez'},
+  {id:20, accountName:'Solaris Media Group', industry:'Media', deviceFleetSize:72, competitorPresence:false, leaseExpirationMonths:12, deviceAge:3, printVolumeTrend:'declining', serviceTicketFrequency:'low', customerSatisfactionScore:8, lastContactDays:35, opportunityStage:'Prospect', dealSizeEstimate:160, repAssigned:'Emily Watson'},
+  {id:21, accountName:'Eastport Shipping Lines', industry:'Logistics', deviceFleetSize:195, competitorPresence:true, leaseExpirationMonths:4, deviceAge:6, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:7, opportunityStage:'Negotiation', dealSizeEstimate:420, repAssigned:'Sarah Chen'},
+  {id:22, accountName:'Nexus Law Firm', industry:'Legal', deviceFleetSize:30, competitorPresence:false, leaseExpirationMonths:5, deviceAge:5, printVolumeTrend:'flat', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:3, opportunityStage:'Proposal', dealSizeEstimate:88, repAssigned:'Marcus Thompson'},
+  {id:23, accountName:'Alpine Manufacturing', industry:'Manufacturing', deviceFleetSize:280, competitorPresence:true, leaseExpirationMonths:8, deviceAge:7, printVolumeTrend:'declining', serviceTicketFrequency:'high', customerSatisfactionScore:5, lastContactDays:41, opportunityStage:'Qualified', dealSizeEstimate:590, repAssigned:'Priya Patel'},
+  {id:24, accountName:'Granite Bank & Trust', industry:'Finance', deviceFleetSize:110, competitorPresence:false, leaseExpirationMonths:11, deviceAge:4, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:8, lastContactDays:16, opportunityStage:'Qualified', dealSizeEstimate:245, repAssigned:'James Rodriguez'},
+  {id:25, accountName:'Coastal Insurance Co', industry:'Insurance', deviceFleetSize:78, competitorPresence:true, leaseExpirationMonths:6, deviceAge:5, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:9, opportunityStage:'Proposal', dealSizeEstimate:195, repAssigned:'Emily Watson'},
+  {id:26, accountName:'Westfield School District', industry:'Education', deviceFleetSize:425, competitorPresence:false, leaseExpirationMonths:3, deviceAge:8, printVolumeTrend:'flat', serviceTicketFrequency:'high', customerSatisfactionScore:6, lastContactDays:5, opportunityStage:'Negotiation', dealSizeEstimate:870, repAssigned:'Sarah Chen'},
+  {id:27, accountName:'BioGenesis Research', industry:'Biotech', deviceFleetSize:62, competitorPresence:true, leaseExpirationMonths:7, deviceAge:3, printVolumeTrend:'increasing', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:10, opportunityStage:'Qualified', dealSizeEstimate:175, repAssigned:'Marcus Thompson'},
+  {id:28, accountName:'Riverbend Hotels Group', industry:'Hospitality', deviceFleetSize:135, competitorPresence:false, leaseExpirationMonths:15, deviceAge:5, printVolumeTrend:'flat', serviceTicketFrequency:'low', customerSatisfactionScore:8, lastContactDays:24, opportunityStage:'Prospect', dealSizeEstimate:280, repAssigned:'Priya Patel'},
+  {id:29, accountName:'Centurion Defense Systems', industry:'Aerospace', deviceFleetSize:320, competitorPresence:true, leaseExpirationMonths:2, deviceAge:9, printVolumeTrend:'increasing', serviceTicketFrequency:'high', customerSatisfactionScore:6, lastContactDays:4, opportunityStage:'Negotiation', dealSizeEstimate:940, repAssigned:'James Rodriguez'},
+  {id:30, accountName:'TrueValue Pharmacy', industry:'Retail', deviceFleetSize:44, competitorPresence:false, leaseExpirationMonths:9, deviceAge:4, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:19, opportunityStage:'Prospect', dealSizeEstimate:105, repAssigned:'Emily Watson'},
+  {id:31, accountName:'Momentum Tech Park', industry:'Technology', deviceFleetSize:88, competitorPresence:true, leaseExpirationMonths:6, deviceAge:4, printVolumeTrend:'increasing', serviceTicketFrequency:'low', customerSatisfactionScore:8, lastContactDays:8, opportunityStage:'Proposal', dealSizeEstimate:220, repAssigned:'Sarah Chen'},
+  {id:32, accountName:'Redstone Energy Partners', industry:'Energy', deviceFleetSize:155, competitorPresence:true, leaseExpirationMonths:5, deviceAge:6, printVolumeTrend:'flat', serviceTicketFrequency:'medium', customerSatisfactionScore:7, lastContactDays:12, opportunityStage:'Qualified', dealSizeEstimate:345, repAssigned:'Marcus Thompson'},
+  {id:33, accountName:'Harbor Point Medical', industry:'Healthcare', deviceFleetSize:95, competitorPresence:false, leaseExpirationMonths:4, deviceAge:5, printVolumeTrend:'increasing', serviceTicketFrequency:'medium', customerSatisfactionScore:8, lastContactDays:6, opportunityStage:'Proposal', dealSizeEstimate:240, repAssigned:'Priya Patel'},
+  {id:34, accountName:'Lakewood City Government', industry:'Government', deviceFleetSize:290, competitorPresence:true, leaseExpirationMonths:10, deviceAge:7, printVolumeTrend:'declining', serviceTicketFrequency:'high', customerSatisfactionScore:5, lastContactDays:30, opportunityStage:'Prospect', dealSizeEstimate:620, repAssigned:'James Rodriguez'},
+  {id:35, accountName:'Verdant Agriculture Co', industry:'Agriculture', deviceFleetSize:52, competitorPresence:false, leaseExpirationMonths:13, deviceAge:3, printVolumeTrend:'flat', serviceTicketFrequency:'low', customerSatisfactionScore:9, lastContactDays:22, opportunityStage:'Prospect', dealSizeEstimate:115, repAssigned:'Emily Watson'}
+];
+
+// ============================================================
+// SCORING ENGINE
+// ============================================================
+function computeScore(a) {
+  let pts = 0;
+  // Lease expiration
+  if (a.leaseExpirationMonths <= 6) pts += 25;
+  else if (a.leaseExpirationMonths <= 12) pts += 20;
+  else if (a.leaseExpirationMonths <= 18) pts += 12;
+  else pts += 5;
+  // Competitor
+  if (a.competitorPresence) pts += 15;
+  // Device age
+  if (a.deviceAge >= 5) pts += 20;
+  else if (a.deviceAge >= 3) pts += 12;
+  else pts += 5;
+  // Print volume
+  if (a.printVolumeTrend === 'increasing') pts += 15;
+  else if (a.printVolumeTrend === 'flat') pts += 8;
+  else pts += 2;
+  // Customer satisfaction
+  if (a.customerSatisfactionScore >= 8) pts += 10;
+  else if (a.customerSatisfactionScore >= 6) pts += 7;
+  else pts += 3;
+  // Service tickets
+  if (a.serviceTicketFrequency === 'high') pts += 8;
+  else if (a.serviceTicketFrequency === 'medium') pts += 5;
+  else pts += 2;
+  // Recent engagement
+  if (a.lastContactDays <= 7) pts += 10;
+  else if (a.lastContactDays <= 14) pts += 7;
+  else if (a.lastContactDays <= 30) pts += 4;
+  else pts += 0;
+  return Math.min(100, pts);
+}
+
+function getRecommendedAction(a, score) {
+  if (a.serviceTicketFrequency === 'high' && a.printVolumeTrend === 'declining') return 'Service escalation';
+  if (a.leaseExpirationMonths <= 6) return 'Renewal proposal';
+  if (a.competitorPresence && score >= 70) return 'Competitive displacement';
+  if (a.deviceAge >= 5 && a.printVolumeTrend === 'increasing') return 'Propose device upgrade';
+  if (score >= 75 && a.lastContactDays > 14) return 'Contact within 7 days';
+  if (['Proposal','Qualified'].includes(a.opportunityStage) && score >= 55) return 'Schedule account review';
+  if (score < 40) return 'Nurture - low priority';
+  return 'Contact within 7 days';
+}
+
+function getScoreColor(score) {
+  if (score >= 75) return 'var(--accent-green)';
+  if (score >= 55) return 'var(--accent-blue)';
+  if (score >= 35) return 'var(--accent-orange)';
+  return 'var(--accent-red)';
+}
+
+function getStageColor(stage) {
+  const map = { Prospect:'gray', Qualified:'blue', Proposal:'purple', Negotiation:'orange', Closed:'green' };
+  return map[stage] || 'gray';
+}
+
+function getActionColor(action) {
+  if (action.includes('Competitive')) return '#f59e0b';
+  if (action.includes('escalation')) return '#ef4444';
+  if (action.includes('Renewal') || action.includes('Propose')) return '#3b82f6';
+  if (action.includes('Contact')) return '#10b981';
+  if (action.includes('Nurture')) return '#94a3b8';
+  return '#8b5cf6';
+}
+
+// Enrich accounts
+const ACCOUNTS = ACCOUNTS_RAW.map(a => {
+  const score = computeScore(a);
+  const probability = score; // probability% = score
+  const recommendedAction = getRecommendedAction(a, score);
+  return { ...a, score, probability, recommendedAction };
+}).sort((a,b) => b.score - a.score);
+
+// ============================================================
+// ORDER VELOCITY MODEL
+// ============================================================
+function computeVelocityForAccounts(accounts) {
+  const qualified = accounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage));
+  if (!qualified.length) return { best: 0, base: 0, worst: 0 };
+  const probs = qualified.map(a => a.probability / 100);
+  probs.sort((a,b) => b - a);
+  const q3Idx = Math.floor(probs.length * 0.25);
+  const q1Idx = Math.floor(probs.length * 0.75);
+  const topQ = probs.slice(0, q3Idx + 1);
+  const botQ = probs.slice(q1Idx);
+  const avgProb = probs.reduce((s,p) => s + p, 0) / probs.length;
+  const topAvg = topQ.reduce((s,p) => s + p, 0) / topQ.length;
+  const botAvg = botQ.reduce((s,p) => s + p, 0) / botQ.length;
+  const best = parseFloat((topAvg * qualified.length * 0.7).toFixed(1));
+  const base = parseFloat((avgProb * qualified.length * 0.5).toFixed(1));
+  const worst = parseFloat((botAvg * qualified.length * 0.3).toFixed(1));
+  return { best, base, worst };
+}
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let currentRep = 'all';
+let accountSortKey = 'score';
+let accountSortAsc = false;
+let expandedAccountId = null;
+
+function getFilteredAccounts() {
+  if (currentRep === 'all') return ACCOUNTS;
+  return ACCOUNTS.filter(a => a.repAssigned === currentRep);
+}
+
+// ============================================================
+// RENDER KPI CARDS
+// ============================================================
+function renderKPICards() {
+  const filtered = getFilteredAccounts();
+  const vel = computeVelocityForAccounts(filtered);
+  const pipeline = filtered.reduce((s,a) => s + a.dealSizeEstimate, 0);
+  const avgProb = Math.round(filtered.reduce((s,a) => s + a.probability, 0) / filtered.length);
+  const daysLeft = 26; // Mock: days remaining in month
+
+  const cards = [
+    {
+      label: 'Predicted Orders This Month',
+      value: vel.base.toFixed(1),
+      unit: ' orders',
+      change: '+12% vs last month',
+      positive: true,
+      icon: '&#128200;',
+      color: 'var(--accent-blue)'
+    },
+    {
+      label: 'Pipeline Value',
+      value: '$' + (pipeline).toLocaleString(),
+      unit: 'K',
+      change: pipeline > 2000 ? 'Strong pipeline' : 'Building pipeline',
+      positive: true,
+      icon: '&#128181;',
+      color: 'var(--accent-green)'
+    },
+    {
+      label: 'Avg Win Probability',
+      value: avgProb,
+      unit: '%',
+      change: avgProb >= 60 ? 'Above target' : 'Below target',
+      positive: avgProb >= 60,
+      icon: '&#127919;',
+      color: 'var(--accent-purple)'
+    },
+    {
+      label: 'Days Remaining in Month',
+      value: daysLeft,
+      unit: ' days',
+      change: daysLeft > 15 ? 'On pace' : 'Final push',
+      positive: daysLeft > 15,
+      icon: '&#128197;',
+      color: 'var(--accent-orange)'
+    }
+  ];
+
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = cards.map(c => `
+    <div class="kpi-card" style="--kpi-color:${c.color};">
+      <div class="kpi-icon">${c.icon}</div>
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value glow-blue">${c.value}<span>${c.unit}</span></div>
+      <div class="kpi-change ${c.positive ? 'delta-pos' : 'delta-neg'}">
+        ${c.positive ? '&#9650;' : '&#9660;'} ${c.change}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// VELOCITY GAUGE (SVG)
+// ============================================================
+function renderVelocityGauge() {
+  const filtered = getFilteredAccounts();
+  const vel = computeVelocityForAccounts(filtered);
+  const target = 9;
+
+  // SVG arc gauge
+  const w = 280, h = 160, cx = 140, cy = 140, r = 110;
+  const startAngle = Math.PI; // 180deg
+  const endAngle = 0; // 360deg (full semicircle)
+  function polarToXY(angle, radius) {
+    return { x: cx + radius * Math.cos(angle), y: cy - radius * Math.sin(angle) };
+  }
+  function arcPath(start, end, radius) {
+    const s = polarToXY(start, radius);
+    const e = polarToXY(end, radius);
+    const large = (start - end) > Math.PI ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${radius} ${radius} 0 ${large} 1 ${e.x} ${e.y}`;
+  }
+
+  const maxVal = Math.max(target * 1.3, vel.best * 1.1, 15);
+  const baseAngle = Math.PI - (vel.base / maxVal) * Math.PI;
+  const bestAngle = Math.PI - (vel.best / maxVal) * Math.PI;
+  const targetAngle = Math.PI - (target / maxVal) * Math.PI;
+
+  const svg = `
+    <svg width="${w}" height="${h+10}" viewBox="0 0 ${w} ${h+10}" style="display:block;margin:0 auto;">
+      <defs>
+        <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#ef4444"/>
+          <stop offset="50%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#10b981"/>
+        </linearGradient>
+      </defs>
+      <path d="${arcPath(Math.PI, 0, r)}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="18" stroke-linecap="round"/>
+      <path d="${arcPath(Math.PI, 0, r)}" fill="none" stroke="url(#gaugeGrad)" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+      <path d="${arcPath(Math.PI, bestAngle, r)}" fill="none" stroke="rgba(16,185,129,0.3)" stroke-width="18" stroke-linecap="round"/>
+      <path d="${arcPath(Math.PI, baseAngle, r)}" fill="none" stroke="var(--accent-blue)" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+      <line x1="${polarToXY(targetAngle, r-26).x}" y1="${polarToXY(targetAngle, r-26).y}" x2="${polarToXY(targetAngle, r+4).x}" y2="${polarToXY(targetAngle, r+4).y}" stroke="var(--accent-orange)" stroke-width="3" stroke-dasharray="4,2"/>
+      <circle cx="${cx}" cy="${cy}" r="6" fill="var(--accent-blue)" style="filter:drop-shadow(0 0 6px var(--accent-blue))"/>
+      <text x="${cx}" y="${cy-18}" text-anchor="middle" fill="var(--text-primary)" font-size="28" font-weight="800" style="font-family:sans-serif;">${vel.base.toFixed(1)}</text>
+      <text x="${cx}" y="${cy-2}" text-anchor="middle" fill="var(--text-secondary)" font-size="12" style="font-family:sans-serif;">orders / month</text>
+      <text x="20" y="${h+5}" fill="#ef4444" font-size="10" style="font-family:sans-serif;">0</text>
+      <text x="${cx-8}" y="${h+5}" fill="var(--text-secondary)" font-size="10" style="font-family:sans-serif;">${(maxVal/2).toFixed(0)}</text>
+      <text x="${w-28}" y="${h+5}" fill="var(--accent-green)" font-size="10" style="font-family:sans-serif;">${maxVal.toFixed(0)}</text>
+    </svg>
+  `;
+
+  document.getElementById('velocityGaugeWrap').innerHTML = svg;
+
+  const barsHtml = `
+    <div class="velocity-display" style="margin-top:8px;">
+      <div class="velocity-case">
+        <div class="velocity-case-label">Worst Case</div>
+        <div class="velocity-case-val worst">${vel.worst.toFixed(1)}</div>
+      </div>
+      <div class="velocity-divider"></div>
+      <div class="velocity-case">
+        <div class="velocity-case-label">Base Case</div>
+        <div class="velocity-case-val base">${vel.base.toFixed(1)}</div>
+      </div>
+      <div class="velocity-divider"></div>
+      <div class="velocity-case">
+        <div class="velocity-case-label">Best Case</div>
+        <div class="velocity-case-val best">${vel.best.toFixed(1)}</div>
+      </div>
+      <div class="velocity-divider"></div>
+      <div class="velocity-case">
+        <div class="velocity-case-label">Target</div>
+        <div class="velocity-case-val" style="color:var(--accent-orange);">${target}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('velocityBars').innerHTML = barsHtml;
+}
+
+// ============================================================
+// PIPELINE FUNNEL (SVG)
+// ============================================================
+function renderFunnel() {
+  const filtered = getFilteredAccounts();
+  const stages = ['Prospect','Qualified','Proposal','Negotiation','Closed'];
+  const colors = ['#94a3b8','#3b82f6','#8b5cf6','#f59e0b','#10b981'];
+  const counts = stages.map(s => filtered.filter(a => a.opportunityStage === s).length);
+  const values = stages.map(s => filtered.filter(a => a.opportunityStage === s).reduce((sum,a) => sum+a.dealSizeEstimate,0));
+  const maxCount = Math.max(...counts, 1);
+
+  let html = '<div class="funnel-wrap">';
+  stages.forEach((stage, i) => {
+    const pct = Math.round((counts[i] / maxCount) * 100);
+    const barW = Math.max(pct, 8);
+    html += `
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+        <div style="width:90px;font-size:12px;color:var(--text-secondary);text-align:right;">${stage}</div>
+        <div style="flex:1;height:26px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;position:relative;">
+          <div style="height:100%;width:${barW}%;background:${colors[i]};opacity:0.85;border-radius:4px;transition:width 1s ease;display:flex;align-items:center;padding-left:8px;">
+            <span style="font-size:12px;font-weight:700;color:white;">${counts[i]}</span>
+          </div>
+        </div>
+        <div style="width:70px;font-size:11px;color:var(--text-secondary);">$${values[i]}K</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  document.getElementById('pipelineFunnel').innerHTML = html;
+}
+
+// ============================================================
+// TOP 10 PRIORITY TABLE
+// ============================================================
+function renderTop10() {
+  const filtered = getFilteredAccounts().slice(0, 10);
+  const rows = filtered.map((a, i) => {
+    const rankN = i + 1;
+    const rankClass = rankN === 1 ? 'rank-1' : rankN === 2 ? 'rank-2' : rankN === 3 ? 'rank-3' : 'rank-other';
+    const scoreColor = getScoreColor(a.score);
+    const actionColor = getActionColor(a.recommendedAction);
+    const sparkData = [40,55,48,62,70,65,a.score].map(v => `<div class="spark-bar" style="height:${Math.round(v/100*18)+2}px;background:${scoreColor};opacity:0.7;"></div>`).join('');
+    return `
+      <tr>
+        <td><span class="rank-badge ${rankClass}">${rankN}</span></td>
+        <td>
+          <div style="font-weight:600;font-size:13px;">${a.accountName}</div>
+          <div style="font-size:11px;color:var(--text-secondary);">${a.deviceFleetSize} devices</div>
+        </td>
+        <td><span class="badge badge-gray">${a.industry}</span></td>
+        <td>
+          <div class="score-bar-wrap tooltip-wrap" style="min-width:100px;">
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width:${a.score}%;background:${scoreColor};box-shadow:0 0 8px ${scoreColor}40;"></div>
+            </div>
+            <div class="score-val" style="color:${scoreColor};">${a.score}</div>
+            <div class="tooltip-box">
+              <div style="font-weight:700;margin-bottom:6px;font-size:12px;">Signal Breakdown</div>
+              <div class="tooltip-row"><span>Lease Exp (${a.leaseExpirationMonths}mo)</span><span style="color:var(--accent-blue);">${a.leaseExpirationMonths<=6?25:a.leaseExpirationMonths<=12?20:a.leaseExpirationMonths<=18?12:5}pts</span></div>
+              <div class="tooltip-row"><span>Competitor</span><span style="color:var(--accent-blue);">${a.competitorPresence?15:0}pts</span></div>
+              <div class="tooltip-row"><span>Device Age (${a.deviceAge}yr)</span><span style="color:var(--accent-blue);">${a.deviceAge>=5?20:a.deviceAge>=3?12:5}pts</span></div>
+              <div class="tooltip-row"><span>Print Volume</span><span style="color:var(--accent-blue);">${a.printVolumeTrend==='increasing'?15:a.printVolumeTrend==='flat'?8:2}pts</span></div>
+              <div class="tooltip-row"><span>Satisfaction (${a.customerSatisfactionScore})</span><span style="color:var(--accent-blue);">${a.customerSatisfactionScore>=8?10:a.customerSatisfactionScore>=6?7:3}pts</span></div>
+              <div class="tooltip-row"><span>Service Tickets</span><span style="color:var(--accent-blue);">${a.serviceTicketFrequency==='high'?8:a.serviceTicketFrequency==='medium'?5:2}pts</span></div>
+              <div class="tooltip-row"><span>Engagement (${a.lastContactDays}d)</span><span style="color:var(--accent-blue);">${a.lastContactDays<=7?10:a.lastContactDays<=14?7:a.lastContactDays<=30?4:0}pts</span></div>
+            </div>
+          </div>
+        </td>
+        <td><span style="font-weight:700;color:${scoreColor};">${a.probability}%</span></td>
+        <td><span style="font-weight:600;">$${a.dealSizeEstimate}K</span></td>
+        <td><span class="action-tag" style="background:${actionColor}22;color:${actionColor};border:1px solid ${actionColor}44;">${a.recommendedAction}</span></td>
+        <td><span class="badge badge-${getStageColor(a.opportunityStage)}">${a.opportunityStage}</span></td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('top10Body').innerHTML = rows;
+}
+
+// ============================================================
+// RISK MONITOR
+// ============================================================
+function renderRiskMonitor() {
+  const filtered = getFilteredAccounts();
+  const atRisk = filtered.filter(a => {
+    return (a.lastContactDays > 21 && a.score > 50) ||
+           (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) ||
+           (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect') ||
+           (a.printVolumeTrend === 'declining' && a.competitorPresence);
+  }).slice(0, 6);
+
+  function getRiskReason(a) {
+    if (a.lastContactDays > 21 && a.score > 50) return `No contact in ${a.lastContactDays} days - high-value account going cold`;
+    if (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) return 'High ticket frequency + low satisfaction - churn risk';
+    if (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect') return `Lease expires in ${a.leaseExpirationMonths}mo but still at Prospect stage`;
+    if (a.printVolumeTrend === 'declining' && a.competitorPresence) return 'Declining print volume + competitor presence - displacement risk';
+    return 'Monitor closely';
+  }
+
+  function getRiskColor(a) {
+    if (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) return 'var(--accent-red)';
+    if (a.leaseExpirationMonths <= 3) return 'var(--accent-orange)';
+    return 'var(--accent-orange)';
+  }
+
+  const html = atRisk.map(a => `
+    <div class="risk-card" style="--risk-color:${getRiskColor(a)};">
+      <div class="risk-card-top">
+        <div class="risk-name">${a.accountName}</div>
+        <span class="badge badge-${a.score >= 60 ? 'blue' : 'gray'}">${a.score}</span>
+      </div>
+      <div class="risk-reason">${getRiskReason(a)}</div>
+      <div class="risk-meta">
+        <span class="badge badge-${getStageColor(a.opportunityStage)}">${a.opportunityStage}</span>
+        <span class="badge badge-gray">${a.repAssigned.split(' ')[0]}</span>
+        <span class="badge badge-orange">$${a.dealSizeEstimate}K</span>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('riskGrid').innerHTML = html || '<div style="color:var(--text-secondary);padding:16px;">No at-risk accounts detected.</div>';
+}
+
+// ============================================================
+// ACCOUNT INTELLIGENCE TABLE
+// ============================================================
+function renderAccountTable() {
+  const search = (document.getElementById('accountSearch')?.value || '').toLowerCase();
+  const stageF = document.getElementById('stageFilter')?.value || '';
+  let accounts = [...ACCOUNTS];
+  if (search) accounts = accounts.filter(a => a.accountName.toLowerCase().includes(search) || a.industry.toLowerCase().includes(search) || a.repAssigned.toLowerCase().includes(search));
+  if (stageF) accounts = accounts.filter(a => a.opportunityStage === stageF);
+  if (currentRep !== 'all') accounts = accounts.filter(a => a.repAssigned === currentRep);
+  // Sort
+  accounts.sort((a, b) => {
+    let av = a[accountSortKey], bv = b[accountSortKey];
+    if (typeof av === 'string') av = av.toLowerCase(), bv = bv.toLowerCase();
+    if (av < bv) return accountSortAsc ? -1 : 1;
+    if (av > bv) return accountSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const rows = accounts.map(a => {
+    const scoreColor = getScoreColor(a.score);
+    const isExpanded = expandedAccountId === a.id;
+    const leaseColor = a.leaseExpirationMonths <= 6 ? 'var(--accent-red)' : a.leaseExpirationMonths <= 12 ? 'var(--accent-orange)' : 'var(--text-secondary)';
+    let detailRow = '';
+    if (isExpanded) {
+      const signals = [
+        {label:'Fleet Size', val: a.deviceFleetSize + ' devices'},
+        {label:'Device Age', val: a.deviceAge + ' years'},
+        {label:'Print Trend', val: a.printVolumeTrend},
+        {label:'Competitor', val: a.competitorPresence ? 'Yes' : 'No'},
+        {label:'Svc Tickets', val: a.serviceTicketFrequency},
+        {label:'CSAT Score', val: a.customerSatisfactionScore + '/10'},
+        {label:'Last Contact', val: a.lastContactDays + ' days ago'},
+        {label:'Deal Estimate', val: '$' + a.dealSizeEstimate + 'K'},
+        {label:'Opp Stage', val: a.opportunityStage}
+      ];
+      detailRow = `
+        <tr class="expanded-detail">
+          <td colspan="11">
+            <div style="padding:8px 4px;">
+              <div style="font-size:12px;font-weight:700;color:var(--accent-blue);margin-bottom:10px;">Signal Breakdown &mdash; ${a.accountName}</div>
+              <div class="signal-breakdown">
+                ${signals.map(s => `
+                  <div class="signal-item">
+                    <div class="signal-item-label">${s.label}</div>
+                    <div class="signal-item-val">${s.val}</div>
+                  </div>
+                `).join('')}
+              </div>
+              <div style="margin-top:10px;font-size:12px;color:var(--text-secondary);">
+                <strong style="color:var(--accent-orange);">Recommended Action:</strong>
+                <span style="color:var(--text-primary);margin-left:6px;">${a.recommendedAction}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+    return `
+      <tr class="expandable-row" onclick="toggleExpand(${a.id})">
+        <td><span style="font-weight:600;">${a.accountName}</span></td>
+        <td><span class="badge badge-gray">${a.industry}</span></td>
+        <td>${a.deviceFleetSize}</td>
+        <td style="color:${leaseColor};font-weight:600;">${a.leaseExpirationMonths}mo</td>
+        <td>
+          <div class="score-bar-wrap" style="min-width:80px;">
+            <div class="score-bar"><div class="score-bar-fill" style="width:${a.score}%;background:${scoreColor};"></div></div>
+            <div class="score-val" style="color:${scoreColor};">${a.score}</div>
+          </div>
+        </td>
+        <td style="color:${scoreColor};font-weight:700;">${a.probability}%</td>
+        <td>$${a.dealSizeEstimate}K</td>
+        <td><span class="badge badge-${getStageColor(a.opportunityStage)}">${a.opportunityStage}</span></td>
+        <td style="font-size:12px;">${a.repAssigned.split(' ')[0]}</td>
+        <td style="color:${a.lastContactDays > 21 ? 'var(--accent-red)' : 'var(--text-secondary)'};">${a.lastContactDays}d ago</td>
+        <td><span class="action-tag" style="background:${getActionColor(a.recommendedAction)}22;color:${getActionColor(a.recommendedAction)};border:1px solid ${getActionColor(a.recommendedAction)}33;font-size:10px;">${a.recommendedAction}</span></td>
+      </tr>
+      ${detailRow}
+    `;
+  }).join('');
+  document.getElementById('accountTableBody').innerHTML = rows;
+}
+
+function toggleExpand(id) {
+  expandedAccountId = expandedAccountId === id ? null : id;
+  renderAccountTable();
+}
+
+function filterAccounts() { renderAccountTable(); }
+
+function sortAccounts(key) {
+  if (accountSortKey === key) accountSortAsc = !accountSortAsc;
+  else { accountSortKey = key; accountSortAsc = false; }
+  renderAccountTable();
+}
+
+// ============================================================
+// MANAGER VIEW
+// ============================================================
+function renderManagerView() {
+  // Rep performance bars
+  const repStats = REPS.map(rep => {
+    const repAccounts = ACCOUNTS.filter(a => a.repAssigned === rep);
+    const vel = computeVelocityForAccounts(repAccounts);
+    const pipeline = repAccounts.reduce((s,a) => s + a.dealSizeEstimate, 0);
+    const avgWin = Math.round(repAccounts.reduce((s,a) => s+a.probability,0)/repAccounts.length);
+    const qualified = repAccounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage)).length;
+    return { rep, vel, pipeline, avgWin, qualified, count: repAccounts.length };
+  });
+
+  const target = 9;
+  const maxPred = Math.max(...repStats.map(r => r.vel.best), target);
+  const repBarsHtml = repStats.map(r => {
+    const pct = Math.round((r.vel.base / maxPred) * 100);
+    const targetPct = Math.round((target / maxPred) * 100);
+    const initials = r.rep.split(' ').map(w=>w[0]).join('');
+    const repColor = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444'][REPS.indexOf(r.rep)];
+    return `
+      <div class="rep-bar-row">
+        <div class="rep-bar-label">
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span style="width:26px;height:26px;border-radius:50%;background:${repColor}33;color:${repColor};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${initials}</span>
+            ${r.rep}
+          </span>
+          <span style="color:var(--accent-blue);font-weight:700;">${r.vel.base.toFixed(1)} / ${target}</span>
+        </div>
+        <div class="rep-bar-track" style="position:relative;">
+          <div class="rep-bar-pred" style="width:${pct}%;background:linear-gradient(90deg,${repColor},${repColor}99);">${r.vel.base.toFixed(1)}</div>
+          <div class="rep-bar-target" style="left:${targetPct}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('repPerfBars').innerHTML = repBarsHtml;
+
+  // Team velocity
+  const teamVel = computeVelocityForAccounts(ACCOUNTS);
+  const teamPipeline = ACCOUNTS.reduce((s,a) => s+a.dealSizeEstimate, 0);
+  document.getElementById('teamVelocity').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="text-align:center;padding:12px;background:rgba(16,185,129,0.08);border-radius:8px;border:1px solid rgba(16,185,129,0.2);">
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">BEST CASE</div>
+        <div style="font-size:26px;font-weight:800;color:var(--accent-green);">${teamVel.best.toFixed(1)}</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:rgba(59,130,246,0.08);border-radius:8px;border:1px solid rgba(59,130,246,0.2);">
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">BASE CASE</div>
+        <div style="font-size:26px;font-weight:800;color:var(--accent-blue);">${teamVel.base.toFixed(1)}</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.2);">
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">WORST CASE</div>
+        <div style="font-size:26px;font-weight:800;color:var(--accent-orange);">${teamVel.worst.toFixed(1)}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-secondary);">Total Pipeline: <strong style="color:var(--text-primary);">$${teamPipeline.toLocaleString()}K</strong> &nbsp;&bull;&nbsp; ${ACCOUNTS.length} Accounts</div>
+  `;
+
+  // Probability distribution chart
+  const bins = [0,20,40,60,80,100];
+  const binCounts = [];
+  for (let i = 0; i < bins.length - 1; i++) {
+    binCounts.push(ACCOUNTS.filter(a => a.probability >= bins[i] && a.probability < bins[i+1]).length);
+  }
+  const maxBin = Math.max(...binCounts, 1);
+  const barColors = ['#ef4444','#f59e0b','#f59e0b','#3b82f6','#10b981'];
+  let distHtml = '<div style="margin-top:8px;"><div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Win Probability Distribution</div><div style="display:flex;align-items:flex-end;gap:6px;height:60px;">';
+  binCounts.forEach((cnt, i) => {
+    const h = Math.round((cnt / maxBin) * 54) + 6;
+    distHtml += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <div style="width:100%;height:${h}px;background:${barColors[i]};border-radius:3px 3px 0 0;opacity:0.8;"></div>
+      <div style="font-size:10px;color:var(--text-secondary);">${bins[i]}-${bins[i+1]}</div>
+    </div>`;
+  });
+  distHtml += '</div></div>';
+  document.getElementById('probDistChart').innerHTML = distHtml;
+
+  // Pipeline health cards
+  const healthHtml = repStats.map(r => {
+    const repColor = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444'][REPS.indexOf(r.rep)];
+    const initials = r.rep.split(' ').map(w=>w[0]).join('');
+    return `
+      <div class="pipeline-card">
+        <div class="pipeline-rep">
+          <span style="width:32px;height:32px;border-radius:50%;background:${repColor}22;color:${repColor};display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${initials}</span>
+          <span style="font-size:13px;">${r.rep.split(' ')[0]}</span>
+        </div>
+        <div class="pipeline-stats">
+          <div>
+            <div class="pipeline-stat-label">Pipeline</div>
+            <div class="pipeline-stat-val" style="color:${repColor};">$${r.pipeline}K</div>
+          </div>
+          <div>
+            <div class="pipeline-stat-label">Win Rate</div>
+            <div class="pipeline-stat-val">${r.avgWin}%</div>
+          </div>
+          <div>
+            <div class="pipeline-stat-label">Accounts</div>
+            <div class="pipeline-stat-val">${r.count}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('pipelineHealthCards').innerHTML = healthHtml;
+
+  // Top opportunities across team
+  const topTeam = [...ACCOUNTS].sort((a,b) => b.score - a.score).slice(0, 8);
+  const teamRows = topTeam.map((a, i) => {
+    const scoreColor = getScoreColor(a.score);
+    const repColor = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444'][REPS.indexOf(a.repAssigned)];
+    return `
+      <tr>
+        <td><span class="rank-badge ${i<3?'rank-'+(i+1):'rank-other'}">${i+1}</span></td>
+        <td><span style="font-weight:600;">${a.accountName}</span></td>
+        <td><span style="color:${repColor};font-weight:600;font-size:12px;">${a.repAssigned.split(' ')[0]}</span></td>
+        <td>
+          <div class="score-bar-wrap" style="min-width:80px;">
+            <div class="score-bar"><div class="score-bar-fill" style="width:${a.score}%;background:${scoreColor};"></div></div>
+            <div class="score-val" style="color:${scoreColor};">${a.score}</div>
+          </div>
+        </td>
+        <td style="color:${scoreColor};font-weight:700;">${a.probability}%</td>
+        <td>$${a.dealSizeEstimate}K</td>
+        <td><span class="badge badge-${getStageColor(a.opportunityStage)}">${a.opportunityStage}</span></td>
+        <td><span class="action-tag" style="background:${getActionColor(a.recommendedAction)}22;color:${getActionColor(a.recommendedAction)};border:1px solid ${getActionColor(a.recommendedAction)}33;font-size:10px;">${a.recommendedAction}</span></td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('teamTopOppBody').innerHTML = teamRows;
+}
+
+// ============================================================
+// AI INSIGHTS
+// ============================================================
+function renderInsights() {
+  const closingSoon = ACCOUNTS.filter(a => a.leaseExpirationMonths <= 6 && a.probability >= 55).slice(0, 4);
+  const competitive = ACCOUNTS.filter(a => a.competitorPresence && a.score >= 65).slice(0, 4);
+  const coldAccounts = ACCOUNTS.filter(a => a.lastContactDays > 21 && a.score >= 50).slice(0, 4);
+  const revenueRisk = ACCOUNTS.filter(a => a.printVolumeTrend === 'declining' && a.competitorPresence).slice(0, 4);
+  const bestContact = ACCOUNTS.filter(a => a.lastContactDays <= 7 && a.score >= 60).slice(0, 3);
+  const highTicket = ACCOUNTS.filter(a => a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 6).slice(0, 3);
+
+  const insights = [
+    {
+      icon: '&#9203;',
+      iconBg: 'rgba(16,185,129,0.15)',
+      iconColor: 'var(--accent-green)',
+      priority: 'High',
+      priorityColor: 'red',
+      title: 'Accounts Likely to Close Within 30 Days',
+      text: `${closingSoon.length} accounts have lease expiration ≤6 months with probability ≥55%. Immediate engagement could accelerate pipeline velocity by up to 23%.`,
+      accounts: closingSoon.map(a => a.accountName).join(', '),
+      action: 'Schedule executive-level renewal meetings this week'
+    },
+    {
+      icon: '&#9876;',
+      iconBg: 'rgba(245,158,11,0.15)',
+      iconColor: 'var(--accent-orange)',
+      priority: 'High',
+      priorityColor: 'red',
+      title: 'Competitive Displacement Opportunities',
+      text: `${competitive.length} accounts show competitor presence with high opportunity scores. Targeted displacement campaigns could yield $${competitive.reduce((s,a)=>s+a.dealSizeEstimate,0)}K in additional pipeline.`,
+      accounts: competitive.map(a => a.accountName).join(', '),
+      action: 'Deploy competitive battle cards and schedule product demos'
+    },
+    {
+      icon: '&#128222;',
+      iconBg: 'rgba(59,130,246,0.15)',
+      iconColor: 'var(--accent-blue)',
+      priority: 'Medium',
+      priorityColor: 'orange',
+      title: 'Rep Activity Recommendations',
+      text: `${coldAccounts.length} high-value accounts have not been contacted in 21+ days. Re-engagement risk is elevated. Recommended: immediate outreach to prevent competitive encroachment.`,
+      accounts: coldAccounts.map(a => a.accountName).join(', '),
+      action: 'Assign contact tasks to reps in CRM by EOD today'
+    },
+    {
+      icon: '&#128204;',
+      iconBg: 'rgba(239,68,68,0.15)',
+      iconColor: 'var(--accent-red)',
+      priority: 'High',
+      priorityColor: 'red',
+      title: 'Revenue at Risk Alerts',
+      text: `${revenueRisk.length} accounts show declining print volume with competitor presence. Total revenue at risk: $${revenueRisk.reduce((s,a)=>s+a.dealSizeEstimate,0)}K. Churn probability increased.`,
+      accounts: revenueRisk.map(a => a.accountName).join(', '),
+      action: 'Conduct value reassessment calls; offer service enhancement packages'
+    },
+    {
+      icon: '&#9200;',
+      iconBg: 'rgba(139,92,246,0.15)',
+      iconColor: 'var(--accent-purple)',
+      priority: 'Medium',
+      priorityColor: 'orange',
+      title: 'Best Time to Contact Insights',
+      text: `${bestContact.length} accounts are in active engagement windows (contacted ≤7 days) with high scores. Strike now while momentum is high to advance deal stages.`,
+      accounts: bestContact.map(a => a.accountName).join(', '),
+      action: 'Advance stage proposals within 48 hours to maintain momentum'
+    },
+    {
+      icon: '&#128295;',
+      iconBg: 'rgba(245,158,11,0.12)',
+      iconColor: '#fbbf24',
+      priority: 'Low',
+      priorityColor: 'blue',
+      title: 'Service Escalation Opportunities',
+      text: `${highTicket.length} accounts with high service ticket frequency and low satisfaction may benefit from proactive service reviews. Convert service touch-points into upsell conversations.`,
+      accounts: highTicket.map(a => a.accountName).join(', '),
+      action: 'Schedule proactive service reviews; involve solution architects'
+    }
+  ];
+
+  const priorityBadge = (p, c) => {
+    const colors = {red:'badge-red', orange:'badge-orange', blue:'badge-blue'};
+    return `<span class="badge ${colors[c] || 'badge-gray'}">${p}</span>`;
+  };
+
+  const html = insights.map(ins => `
+    <div class="insight-card">
+      <div class="insight-icon" style="background:${ins.iconBg};color:${ins.iconColor};">${ins.icon}</div>
+      <div class="insight-body">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div class="insight-title">${ins.title}</div>
+          ${priorityBadge(ins.priority, ins.priorityColor)}
+        </div>
+        <div class="insight-text">${ins.text}</div>
+        <div class="insight-accounts">&#128101; Affected: ${ins.accounts || 'None identified'}</div>
+        <div class="insight-action">&#10003; ${ins.action}</div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('insightGrid').innerHTML = html;
+}
+
+// ============================================================
+// SIMULATION
+// ============================================================
+const SIM_BASELINE = computeVelocityForAccounts(ACCOUNTS);
+
+function updateSimulation() {
+  const cr = parseInt(document.getElementById('contactRate').value);
+  const qs = parseInt(document.getElementById('qualityScore').value);
+  const cp = parseInt(document.getElementById('competitivePressure').value);
+  const ra = parseInt(document.getElementById('repActivity').value);
+  const md = parseInt(document.getElementById('marketDemand').value);
+
+  // Update labels
+  document.getElementById('val-contactRate').textContent = cr + '%';
+  document.getElementById('val-qualityScore').textContent = qs + '%';
+  document.getElementById('val-competitivePressure').textContent = cp + '%';
+  document.getElementById('val-repActivity').textContent = ra + '%';
+  document.getElementById('val-marketDemand').textContent = md + '%';
+
+  // Compute multiplier
+  const baselineMultiplier = (0.60 + 0.55 + 0.60 + 0.70 + 0.65) / 5;
+  const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100)*0.6 + ra/100 + md/100) / 5;
+  const ratio = currentMultiplier / baselineMultiplier;
+
+  const simBase = parseFloat((SIM_BASELINE.base * ratio).toFixed(1));
+  const simBest = parseFloat((SIM_BASELINE.best * ratio).toFixed(1));
+  const simWorst = parseFloat((SIM_BASELINE.worst * ratio).toFixed(1));
+  const delta = parseFloat((simBase - SIM_BASELINE.base).toFixed(1));
+  const deltaSign = delta >= 0 ? '+' : '';
+  const deltaColor = delta >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+  document.getElementById('simPredOrders').textContent = simBase.toFixed(1);
+  document.getElementById('simPredOrders').style.color = simBase >= 9 ? 'var(--accent-green)' : simBase >= 6 ? 'var(--accent-blue)' : 'var(--accent-orange)';
+  document.getElementById('simDelta').innerHTML = `<span style="color:${deltaColor};font-size:16px;">${deltaSign}${delta} vs baseline (${SIM_BASELINE.base.toFixed(1)})</span> &nbsp;|&nbsp; Target: 9 orders/month`;
+
+  const target = 9;
+  const maxVal = Math.max(simBest, target, 15);
+  const cases = [
+    { label: 'Best Case', val: simBest, color: 'var(--accent-green)' },
+    { label: 'Base Case', val: simBase, color: 'var(--accent-blue)' },
+    { label: 'Worst Case', val: simWorst, color: 'var(--accent-orange)' },
+    { label: 'Target', val: target, color: 'var(--accent-purple)' }
+  ];
+  let barsHtml = '';
+  cases.forEach(c => {
+    const pct = Math.round((c.val / maxVal) * 100);
+    barsHtml += `
+      <div class="sim-bar-row">
+        <div class="sim-bar-label-row">
+          <span>${c.label}</span>
+          <span style="color:${c.color};font-weight:700;">${typeof c.val === 'number' ? c.val.toFixed(1) : c.val}</span>
+        </div>
+        <div class="sim-bar-track">
+          <div class="sim-bar-fill" style="width:${pct}%;background:${c.color};"></div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('simBars').innerHTML = barsHtml;
+
+  // Impact chart - show per-parameter contribution
+  const params = [
+    { label: 'Contact Rate', val: cr, baseline: 60 },
+    { label: 'Deal Quality', val: qs, baseline: 55 },
+    { label: 'Competitive (inv)', val: 100-cp, baseline: 60 },
+    { label: 'Rep Activity', val: ra, baseline: 70 },
+    { label: 'Market Demand', val: md, baseline: 65 }
+  ];
+  const paramColors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444'];
+  let chartHtml = '<div style="display:flex;align-items:flex-end;gap:8px;height:100px;padding:0 10px;">';
+  params.forEach((p, i) => {
+    const h = Math.round((p.val / 100) * 90) + 10;
+    const baseH = Math.round((p.baseline / 100) * 90) + 10;
+    chartHtml += `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <div style="font-size:10px;color:var(--text-secondary);text-align:center;">${p.val}%</div>
+        <div style="width:100%;position:relative;">
+          <div style="width:100%;height:${h}px;background:${paramColors[i]};border-radius:4px 4px 0 0;opacity:0.85;transition:height 0.5s ease;"></div>
+          <div style="position:absolute;bottom:${baseH}px;left:-2px;right:-2px;height:2px;background:rgba(255,255,255,0.4);border-radius:1px;"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-secondary);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.label}</div>
+      </div>
+    `;
+  });
+  chartHtml += '</div><div style="font-size:11px;color:var(--text-secondary);text-align:center;margin-top:6px;">White line = baseline value</div>';
+  document.getElementById('simImpactChart').innerHTML = chartHtml;
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  el.classList.add('active');
+
+  if (tabId === 'account-intel') renderAccountTable();
+  if (tabId === 'manager-view') renderManagerView();
+  if (tabId === 'ai-insights') renderInsights();
+  if (tabId === 'simulation') updateSimulation();
+}
+
+// ============================================================
+// REP FILTER
+// ============================================================
+function filterByRep(val) {
+  currentRep = val;
+  renderKPICards();
+  renderVelocityGauge();
+  renderFunnel();
+  renderTop10();
+  renderRiskMonitor();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportReport() {
+  alert('Aurasell AI Report Export\n\nGenerating PDF report for: ' + (currentRep === 'all' ? 'All Reps' : currentRep) + '\n\nReport includes:\n- Order velocity forecast\n- Top 10 priority accounts\n- Risk monitor alerts\n- AI insights summary\n\nExport ready. In production, this would trigger PDF generation via the Aurasell reporting API.');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  // Show skeleton briefly
+  const skeleton = document.getElementById('skeleton-rep');
+  const content = document.getElementById('content-rep');
+  if (skeleton) { skeleton.style.display = 'block'; content.style.display = 'none'; }
+  setTimeout(() => {
+    if (skeleton) { skeleton.style.display = 'none'; content.style.display = 'block'; }
+    renderKPICards();
+    renderVelocityGauge();
+    renderFunnel();
+    renderTop10();
+    renderRiskMonitor();
+  }, 800);
+
+  // Refresh timestamp
+  const now = new Date();
+  document.getElementById('lastRefresh').textContent = 'Last refreshed: ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' · ' + now.toLocaleDateString([], {month:'short',day:'numeric'});
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
