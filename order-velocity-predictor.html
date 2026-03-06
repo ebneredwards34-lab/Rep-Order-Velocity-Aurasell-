@@ -630,6 +630,52 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   gap: 24px;
   flex-wrap: wrap;
 }
+.mrr-ticker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 0 16px;
+  border-right: 1px solid var(--border);
+  margin-right: 8px;
+}
+.daily-brief-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.05) 100%);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 10px;
+}
+.btn-log {
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3);
+  color: var(--accent-blue);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.btn-log:hover { background: rgba(59,130,246,0.2); }
+.header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(59,130,246,0.015) 2px,
+    rgba(59,130,246,0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.header > * { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
@@ -644,6 +690,10 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     </div>
   </div>
   <div class="header-right">
+    <div class="mrr-ticker" id="mrrTicker">
+      <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.6px;">Live Pipeline MRR</span>
+      <span id="mrrTickerVal" style="font-size:15px;font-weight:800;color:var(--accent-green);">$0/mo</span>
+    </div>
     <div class="last-refresh">
       <div class="refresh-dot"></div>
       <span id="lastRefresh">Last refreshed: --</span>
@@ -703,6 +753,8 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   </div>
 
   <div id="content-rep">
+    <!-- DAILY BRIEF -->
+    <div id="dailyBrief" style="margin-bottom:16px;"></div>
     <!-- GREETING -->
     <div id="repGreeting" style="font-size:15px;color:var(--text-secondary);margin-bottom:16px;"></div>
 
@@ -823,6 +875,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
             <th onclick="sortAccounts('repAssigned')">Rep &#8597;</th>
             <th onclick="sortAccounts('lastContactDays')">Last Contact &#8597;</th>
             <th>Action</th>
+            <th>Outcome</th>
           </tr>
         </thead>
         <tbody id="accountTableBody"></tbody>
@@ -837,6 +890,20 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 <div id="tab-manager-view" class="tab-content">
   <div class="section-title">Manager View</div>
   <div class="section-sub">Team performance overview and pipeline health analysis</div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#129504; Model Accuracy Tracker</div>
+        <div class="card-subtitle">Learns from logged win/loss outcomes — persists across sessions</div>
+      </div>
+    </div>
+    <div id="modelAccuracyCard">
+      <div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px;">
+        No outcomes logged yet. Use the Account Intelligence tab to log deal outcomes and train the model.
+      </div>
+    </div>
+  </div>
 
   <div class="grid-2" style="margin-bottom:20px;">
     <div class="card">
@@ -1028,6 +1095,8 @@ const COLD_ACCOUNT_DAYS = 21; // standardized threshold for "cold" accounts
 // ============================================================
 // MOCK DATA - 35 ACCOUNTS
 // ============================================================
+const OUTCOMES_KEY = 'aurasell_outcomes_v1';
+const SNAPSHOTS_KEY = 'aurasell_snapshots_v1';
 const REPS = ['Sarah Chen','Marcus Thompson','Priya Patel','James Rodriguez','Emily Watson'];
 
 const ACCOUNTS_RAW = [
@@ -1073,6 +1142,9 @@ const ACCOUNTS_RAW = [
 // ============================================================
 function computeScore(a) {
   let pts = 0;
+  // Opportunity stage
+  const stageScore = { 'Negotiation': 15, 'Proposal': 11, 'Qualified': 7, 'Prospect': 3, 'Closed': 0 };
+  pts += stageScore[a.opportunityStage] || 3;
   // Lease expiration
   if (a.leaseExpirationMonths <= 6) pts += 25;
   else if (a.leaseExpirationMonths <= 12) pts += 20;
@@ -1148,28 +1220,47 @@ const ACCOUNTS = ACCOUNTS_RAW.map(a => {
   const score = computeScore(a);
   const probability = Math.round(100 / (1 + Math.exp(-0.08 * (score - 55))));
   const recommendedAction = getRecommendedAction(a, score);
-  return { ...a, score, probability, recommendedAction };
+  const monthlyMRR = Math.round(a.dealSizeEstimate * 0.08);
+  return { ...a, score, probability, recommendedAction, monthlyMRR };
 }).sort((a,b) => b.score - a.score);
 
 // ============================================================
 // ORDER VELOCITY MODEL
 // ============================================================
 function computeVelocityForAccounts(accounts) {
-  const qualified = accounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage));
-  if (!qualified.length) return { best: 0, base: 0, worst: 0 };
-  const probs = qualified.map(a => a.probability / 100);
-  probs.sort((a,b) => b - a);
-  const q3Idx = Math.floor(probs.length * 0.25);
-  const q1Idx = Math.floor(probs.length * 0.75);
-  const topQ = probs.slice(0, q3Idx + 1);
-  const botQ = probs.slice(q1Idx);
-  const avgProb = probs.reduce((s,p) => s + p, 0) / probs.length;
-  const topAvg = topQ.reduce((s,p) => s + p, 0) / topQ.length;
-  const botAvg = botQ.reduce((s,p) => s + p, 0) / botQ.length;
-  const best = parseFloat((topAvg * qualified.length * 0.7).toFixed(1));
-  const base = parseFloat((avgProb * qualified.length * 0.5).toFixed(1));
-  const worst = parseFloat((botAvg * qualified.length * 0.3).toFixed(1));
-  return { best, base, worst };
+  const stageRates = { 'Negotiation': 0.72, 'Proposal': 0.38, 'Qualified': 0.18 };
+  const active = accounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage));
+  if (!active.length) return { best: 0, base: 0, worst: 0, weightedMRR: 0 };
+
+  const baseOrders = active.reduce((sum, a) => {
+    const stageRate = stageRates[a.opportunityStage] || 0.2;
+    return sum + (a.probability / 100) * stageRate;
+  }, 0);
+
+  const sorted = [...active].sort((a, b) => b.probability - a.probability);
+  const topQ = sorted.slice(0, Math.max(1, Math.ceil(sorted.length * 0.25)));
+  const bestOrders = topQ.reduce((sum, a) => {
+    const stageRate = Math.min(0.95, (stageRates[a.opportunityStage] || 0.2) * 1.2);
+    return sum + (a.probability / 100) * stageRate;
+  }, 0) + baseOrders * 0.4;
+
+  const botQ = sorted.slice(Math.floor(sorted.length * 0.75));
+  const worstOrders = botQ.reduce((sum, a) => {
+    const stageRate = (stageRates[a.opportunityStage] || 0.2) * 0.7;
+    return sum + (a.probability / 100) * stageRate;
+  }, 0);
+
+  const weightedMRR = active.reduce((sum, a) => {
+    const stageRate = stageRates[a.opportunityStage] || 0.2;
+    return sum + a.monthlyMRR * (a.probability / 100) * stageRate;
+  }, 0);
+
+  return {
+    best: parseFloat(bestOrders.toFixed(1)),
+    base: parseFloat(baseOrders.toFixed(1)),
+    worst: parseFloat(worstOrders.toFixed(1)),
+    weightedMRR: Math.round(weightedMRR)
+  };
 }
 
 // ============================================================
@@ -1268,6 +1359,17 @@ function renderGoalTracker() {
     ? negotiationAccounts.length + ' account' + (negotiationAccounts.length > 1 ? 's' : '') + ' in Negotiation represent your clearest path to close. Prioritize ' + negotiationAccounts.map(a => a.accountName).join(', ') + '.'
     : 'Advance your highest-scored Proposal accounts to Negotiation to accelerate velocity.';
 
+  const delta = getPipelineDelta();
+  let deltaHtml = '';
+  if (delta) {
+    const pSign = delta.pipelineDelta >= 0 ? '+' : '';
+    const oSign = delta.ordersDelta >= 0 ? '+' : '';
+    const pColor = delta.pipelineDelta >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    const oColor = delta.ordersDelta >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    const icon = delta.pipelineDelta >= 0 ? '📈' : '📉';
+    deltaHtml = `<div style="margin-top:10px;font-size:12px;color:var(--text-secondary);">${icon} Pipeline <span style="color:${pColor};font-weight:600;">${pSign}$${Math.abs(delta.pipelineDelta)}K</span> since last snapshot &nbsp;&bull;&nbsp; Orders forecast <span style="color:${oColor};font-weight:600;">${oSign}${delta.ordersDelta}</span> vs prior week</div>`;
+  }
+
   el.innerHTML = `
     <div class="goal-tracker-card">
       <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
@@ -1298,13 +1400,18 @@ function renderGoalTracker() {
               <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Gap</div>
               <div style="font-size:14px;font-weight:700;color:${gap > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'};">${gapLabel}</div>
             </div>
+            <div style="text-align:center;padding:8px 14px;background:rgba(139,92,246,0.08);border-radius:8px;border:1px solid rgba(139,92,246,0.2);">
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Exp. MRR</div>
+              <div style="font-size:18px;font-weight:700;color:var(--accent-purple);">$${(vel.weightedMRR/1000).toFixed(1)}K</div>
+            </div>
           </div>
         </div>
         <div style="flex:1;min-width:200px;padding:12px 16px;background:rgba(59,130,246,0.05);border-radius:8px;border-left:3px solid var(--accent-blue);">
-          <div style="font-size:10px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Path to Close</div>
+          <div style="font-size:10px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Path to Close &mdash; Based on stage-weighted close probability model</div>
           <div style="font-size:13px;line-height:1.5;color:var(--text-primary);">${pathText}</div>
         </div>
       </div>
+      ${deltaHtml}
     </div>
   `;
 }
@@ -1715,6 +1822,11 @@ function renderVelocityGauge() {
         <div class="velocity-case-label">Target</div>
         <div class="velocity-case-val" style="color:var(--accent-orange);">${target}</div>
       </div>
+      <div class="velocity-divider"></div>
+      <div class="velocity-case">
+        <div class="velocity-case-label">Exp. MRR</div>
+        <div class="velocity-case-val" style="color:var(--accent-purple);">$${(vel.weightedMRR/1000).toFixed(1)}K/mo</div>
+      </div>
     </div>
   `;
   document.getElementById('velocityBars').innerHTML = barsHtml;
@@ -1771,11 +1883,12 @@ function renderTop10() {
     const scoreColor = getScoreColor(a.score);
     const actionColor = getActionColor(a.recommendedAction);
     const sparkData = [40,55,48,62,70,65,a.score].map(v => `<div class="spark-bar" style="height:${Math.round(v/100*18)+2}px;background:${scoreColor};opacity:0.7;"></div>`).join('');
+    const m = getMomentum(a);
     return `
       <tr>
         <td><span class="rank-badge ${rankClass}">${rankN}</span></td>
         <td>
-          <div style="font-weight:600;font-size:13px;">${a.accountName}</div>
+          <div style="font-weight:600;font-size:13px;">${a.accountName}<span style="font-size:13px;font-weight:700;color:${m.color};margin-left:4px;" title="${m.label}">${m.arrow}</span></div>
           <div style="font-size:11px;color:var(--text-secondary);">${a.deviceFleetSize} devices</div>
         </td>
         <td><span class="badge badge-gray">${a.industry}</span></td>
@@ -1899,6 +2012,7 @@ function renderUrgencyHeatmap() {
 // ACCOUNT INTELLIGENCE TABLE
 // ============================================================
 function renderAccountTable() {
+  const outcomes = JSON.parse(localStorage.getItem(OUTCOMES_KEY) || '{}');
   const search = (document.getElementById('accountSearch')?.value || '').toLowerCase();
   const stageF = document.getElementById('stageFilter')?.value || '';
   let accounts = [...ACCOUNTS];
@@ -1918,6 +2032,7 @@ function renderAccountTable() {
     const scoreColor = getScoreColor(a.score);
     const isExpanded = expandedAccountId === a.id;
     const leaseColor = a.leaseExpirationMonths <= 6 ? 'var(--accent-red)' : a.leaseExpirationMonths <= 12 ? 'var(--accent-orange)' : 'var(--text-secondary)';
+    const m = getMomentum(a);
     let detailRow = '';
     if (isExpanded) {
       const signals = [
@@ -1933,7 +2048,7 @@ function renderAccountTable() {
       ];
       detailRow = `
         <tr class="expanded-detail">
-          <td colspan="11">
+          <td colspan="12">
             <div style="padding:8px 4px;">
               <div style="font-size:12px;font-weight:700;color:var(--accent-blue);margin-bottom:10px;">Signal Breakdown &mdash; ${a.accountName}</div>
               <div class="signal-breakdown">
@@ -1953,9 +2068,17 @@ function renderAccountTable() {
         </tr>
       `;
     }
+    const outcomeData = outcomes[a.id];
+    let outcomeTd = '';
+    if (outcomeData) {
+      const ob = outcomeData.outcome === 'won' ? {cls:'badge-green',icon:'✓',label:'Won'} : outcomeData.outcome === 'lost' ? {cls:'badge-red',icon:'✗',label:'Lost'} : {cls:'badge-gray',icon:'⟳',label:'Stalled'};
+      outcomeTd = `<td><span class="badge ${ob.cls}" style="font-size:11px;">${ob.icon} ${ob.label}</span></td>`;
+    } else {
+      outcomeTd = `<td><button class="btn-log" onclick="event.stopPropagation();showOutcomeDropdown(${a.id}, this)">+ Log</button></td>`;
+    }
     return `
       <tr class="expandable-row" onclick="toggleExpand(${a.id})">
-        <td><span style="font-weight:600;">${a.accountName}</span></td>
+        <td><span style="font-weight:600;">${a.accountName}</span><span style="font-size:12px;font-weight:700;color:${m.color};margin-left:4px;" title="${m.label}">${m.arrow}</span></td>
         <td><span class="badge badge-gray">${a.industry}</span></td>
         <td>${a.deviceFleetSize}</td>
         <td style="color:${leaseColor};font-weight:600;">${a.leaseExpirationMonths}mo</td>
@@ -1971,6 +2094,7 @@ function renderAccountTable() {
         <td style="font-size:12px;">${a.repAssigned.split(' ')[0]}</td>
         <td style="color:${a.lastContactDays > COLD_ACCOUNT_DAYS ? 'var(--accent-red)' : 'var(--text-secondary)'};">${a.lastContactDays}d ago</td>
         <td><span class="action-tag" style="background:${getActionColor(a.recommendedAction)}22;color:${getActionColor(a.recommendedAction)};border:1px solid ${getActionColor(a.recommendedAction)}33;font-size:10px;">${a.recommendedAction}</span></td>
+        ${outcomeTd}
       </tr>
       ${detailRow}
     `;
@@ -1995,6 +2119,7 @@ function sortAccounts(key) {
 // MANAGER VIEW
 // ============================================================
 function renderManagerView() {
+  updateModelAccuracy();
   // Rep performance bars
   const repStats = REPS.map(rep => {
     const repAccounts = ACCOUNTS.filter(a => a.repAssigned === rep);
@@ -2258,11 +2383,11 @@ function updateSimulation() {
   // Compute multiplier from stored defaults
   const dCR = (SIM_DEFAULTS.contactRate || 60) / 100;
   const dQS = (SIM_DEFAULTS.qualityScore || 55) / 100;
-  const dCP = (1 - (SIM_DEFAULTS.competitivePressure || 40) / 100) * 0.6;
+  const dCP = (1 - (SIM_DEFAULTS.competitivePressure || 40) / 100);
   const dRA = (SIM_DEFAULTS.repActivity || 70) / 100;
   const dMD = (SIM_DEFAULTS.marketDemand || 65) / 100;
   const baselineMultiplier = (dCR + dQS + dCP + dRA + dMD) / 5;
-  const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100)*0.6 + ra/100 + md/100) / 5;
+  const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100) + ra/100 + md/100) / 5;
   const ratio = currentMultiplier / baselineMultiplier;
 
   const simBase = parseFloat((SIM_BASELINE.base * ratio).toFixed(1));
@@ -2415,7 +2540,7 @@ async function sendChatMessage() {
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
         system: buildSystemPrompt(),
         messages: conversationHistory
@@ -2458,6 +2583,231 @@ function formatAIResponse(text) {
 }
 
 // ============================================================
+// WIN/LOSS OUTCOME LOGGER
+// ============================================================
+function logOutcome(accountId, outcome) {
+  let outcomes = JSON.parse(localStorage.getItem(OUTCOMES_KEY) || '{}');
+  const acc = ACCOUNTS.find(a => a.id === accountId);
+  outcomes[accountId] = {
+    outcome,
+    loggedAt: new Date().toISOString(),
+    score: acc?.score,
+    probability: acc?.probability,
+    stage: acc?.opportunityStage,
+    rep: acc?.repAssigned
+  };
+  localStorage.setItem(OUTCOMES_KEY, JSON.stringify(outcomes));
+  renderAccountTable();
+  updateModelAccuracy();
+  showToast(outcome === 'won' ? '✓ Win logged — model updating' : outcome === 'lost' ? '✗ Loss logged — model updating' : '⟳ Stall logged');
+}
+
+function showOutcomeDropdown(accountId, btn) {
+  const wrapper = btn.parentElement;
+  wrapper.innerHTML = `<select onchange="logOutcome(${accountId}, this.value); this.parentElement.innerHTML=''"
+    style="background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-primary);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">
+    <option value="">Select...</option>
+    <option value="won">✅ Won</option>
+    <option value="lost">❌ Lost</option>
+    <option value="stalled">🔄 Stalled</option>
+  </select>`;
+}
+
+// ============================================================
+// MODEL ACCURACY SCORE
+// ============================================================
+function computeModelAccuracy() {
+  const outcomes = JSON.parse(localStorage.getItem(OUTCOMES_KEY) || '{}');
+  const logged = Object.values(outcomes);
+  if (logged.length === 0) return null;
+  const correct = logged.filter(o => {
+    if (o.outcome === 'won') return o.probability > 50;
+    if (o.outcome === 'lost') return o.probability <= 50;
+    return false;
+  });
+  const evaluated = logged.filter(o => o.outcome !== 'stalled');
+  if (!evaluated.length) return null;
+  const accuracy = Math.round((correct.length / evaluated.length) * 100);
+  const wonCount = logged.filter(o => o.outcome === 'won').length;
+  const lostCount = logged.filter(o => o.outcome === 'lost').length;
+  const stalledCount = logged.filter(o => o.outcome === 'stalled').length;
+  return { accuracy, total: logged.length, wonCount, lostCount, stalledCount, evaluated: evaluated.length };
+}
+
+function updateModelAccuracy() {
+  const el = document.getElementById('modelAccuracyCard');
+  if (!el) return;
+  const result = computeModelAccuracy();
+  if (!result) {
+    el.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px;">No outcomes logged yet. Use the Account Intelligence tab to log deal outcomes and train the model.</div>';
+    return;
+  }
+  const color = result.accuracy >= 75 ? 'var(--accent-green)' : result.accuracy >= 55 ? 'var(--accent-blue)' : 'var(--accent-orange)';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:42px;font-weight:900;color:${color};line-height:1;">${result.accuracy}%</div>
+        <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.6px;margin-top:4px;">Model Accuracy</div>
+        <div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">based on ${result.evaluated} evaluated outcomes</div>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;min-width:200px;">
+        <div style="text-align:center;padding:10px;background:rgba(16,185,129,0.08);border-radius:8px;border:1px solid rgba(16,185,129,0.2);">
+          <div style="font-size:22px;font-weight:800;color:var(--accent-green);">${result.wonCount}</div>
+          <div style="font-size:10px;color:var(--text-secondary);">Won</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:rgba(239,68,68,0.08);border-radius:8px;border:1px solid rgba(239,68,68,0.2);">
+          <div style="font-size:22px;font-weight:800;color:var(--accent-red);">${result.lostCount}</div>
+          <div style="font-size:10px;color:var(--text-secondary);">Lost</div>
+        </div>
+        <div style="text-align:center;padding:10px;background:rgba(148,163,184,0.08);border-radius:8px;border:1px solid rgba(148,163,184,0.2);">
+          <div style="font-size:22px;font-weight:800;color:var(--text-secondary);">${result.stalledCount}</div>
+          <div style="font-size:10px;color:var(--text-secondary);">Stalled</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:180px;padding:12px 16px;background:rgba(59,130,246,0.05);border-radius:8px;border-left:3px solid var(--accent-blue);font-size:12px;line-height:1.6;color:var(--text-secondary);">
+        ${result.accuracy >= 75
+          ? '🟢 Strong predictive accuracy. The scoring model is well-calibrated for this pipeline.'
+          : result.accuracy >= 55
+            ? '🔵 Moderate accuracy. Consider reviewing accounts where score > 70 that were lost.'
+            : '🟡 Model needs calibration. Log more outcomes to improve prediction quality.'}
+        <br><a href="#" onclick="clearOutcomes();return false;" style="color:var(--accent-blue);font-size:11px;margin-top:6px;display:inline-block;">Reset logged outcomes</a>
+      </div>
+    </div>
+  `;
+}
+
+function clearOutcomes() {
+  if (confirm('Clear all logged outcomes? This will reset the model accuracy tracker.')) {
+    localStorage.removeItem(OUTCOMES_KEY);
+    updateModelAccuracy();
+    renderAccountTable();
+    showToast('Outcomes cleared — model reset');
+  }
+}
+
+// ============================================================
+// PIPELINE SNAPSHOT HISTORY
+// ============================================================
+function savePipelineSnapshot() {
+  const snapshots = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+  const now = new Date();
+  const thisWeek = `${now.getFullYear()}-W${Math.ceil(now.getDate()/7)}`;
+  if (snapshots.length && snapshots[snapshots.length-1].week === thisWeek) return;
+  const totalPipeline = ACCOUNTS.reduce((s,a) => s+a.dealSizeEstimate, 0);
+  const vel = computeVelocityForAccounts(ACCOUNTS);
+  snapshots.push({ week: thisWeek, date: now.toISOString(), pipeline: totalPipeline, baseOrders: vel.base });
+  if (snapshots.length > 8) snapshots.shift();
+  localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
+}
+
+function getPipelineDelta() {
+  const snapshots = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]');
+  if (snapshots.length < 2) return null;
+  const prev = snapshots[snapshots.length - 2];
+  const curr = snapshots[snapshots.length - 1];
+  return {
+    pipelineDelta: curr.pipeline - prev.pipeline,
+    ordersDelta: parseFloat((curr.baseOrders - prev.baseOrders).toFixed(1)),
+    weeksAgo: snapshots.length - 1
+  };
+}
+
+// ============================================================
+// LIVE MRR TICKER
+// ============================================================
+function startMRRTicker() {
+  const baseMRR = ACCOUNTS.reduce((s,a) => s + a.monthlyMRR, 0);
+  const el = document.getElementById('mrrTickerVal');
+  if (!el) return;
+  const t0 = performance.now();
+  const dur = 1200;
+  function countUp(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1-p, 4);
+    const v = Math.round(e * baseMRR);
+    el.textContent = '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'K' : v) + '/mo';
+    if (p < 1) requestAnimationFrame(countUp);
+    else startFluctuation(baseMRR);
+  }
+  requestAnimationFrame(countUp);
+  function startFluctuation(base) {
+    setInterval(() => {
+      const fluctuation = base * (1 + (Math.random() - 0.5) * 0.006);
+      const v = Math.round(fluctuation);
+      el.style.transition = 'color 0.5s';
+      el.style.color = v > base ? 'var(--accent-green)' : 'var(--text-secondary)';
+      el.textContent = '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'K' : v) + '/mo';
+    }, 8000);
+  }
+}
+
+// ============================================================
+// DAILY AI BRIEF
+// ============================================================
+async function renderDailyBrief() {
+  const el = document.getElementById('dailyBrief');
+  if (!el) return;
+  const apiKey = window.ANTHROPIC_API_KEY || '';
+  if (!apiKey) {
+    el.innerHTML = `<div class="daily-brief-card">
+      <span style="font-size:18px;">&#129302;</span>
+      <div style="flex:1;">
+        <span style="font-size:11px;font-weight:700;color:var(--accent-blue);text-transform:uppercase;letter-spacing:0.6px;">Daily Brief</span>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">Connect your API key in Ask Aurasell AI to enable AI-generated daily briefings.</div>
+      </div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="daily-brief-card">
+    <span style="font-size:18px;">&#129302;</span>
+    <div style="flex:1;">
+      <span style="font-size:11px;font-weight:700;color:var(--accent-blue);text-transform:uppercase;letter-spacing:0.6px;">Daily Brief</span>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;display:flex;align-items:center;gap:8px;"><div class="typing-indicator" style="padding:0;"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div> Generating briefing...</div>
+    </div>
+  </div>`;
+  const topUrgent = ACCOUNTS.filter(a => a.leaseExpirationMonths <= 3 && a.opportunityStage !== 'Closed').slice(0,2);
+  const coldHigh = ACCOUNTS.filter(a => a.lastContactDays > 21 && a.score >= 60).slice(0,2);
+  const vel = computeVelocityForAccounts(getFilteredAccounts());
+  const briefPrompt = `You are Aurasell AI for Xerox. Write a single sentence (max 35 words) daily briefing for a sales manager. Be direct, specific, action-oriented. Use real account names.\n\nPipeline: ${vel.base.toFixed(1)} predicted orders vs 9 target. Most urgent accounts (lease expiring ≤3mo): ${topUrgent.map(a=>a.accountName).join(', ') || 'none'}. Cold high-value accounts (21+ days no contact): ${coldHigh.map(a=>a.accountName).join(', ') || 'none'}.\n\nOne sentence, no preamble, start with the most critical action:`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 80, messages: [{ role: 'user', content: briefPrompt }] })
+    });
+    const data = await res.json();
+    const brief = data.content?.[0]?.text || 'Focus on your highest-priority accounts today.';
+    el.innerHTML = `<div class="daily-brief-card">
+      <span style="font-size:18px;">&#129302;</span>
+      <div style="flex:1;">
+        <span style="font-size:11px;font-weight:700;color:var(--accent-blue);text-transform:uppercase;letter-spacing:0.6px;">AI Daily Brief</span>
+        <div style="font-size:13px;color:var(--text-primary);margin-top:2px;line-height:1.5;">${brief}</div>
+      </div>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = '';
+  }
+}
+
+// ============================================================
+// ACCOUNT MOMENTUM
+// ============================================================
+function getMomentum(a) {
+  let score = 0;
+  if (a.printVolumeTrend === 'increasing') score += 2;
+  if (a.printVolumeTrend === 'declining') score -= 2;
+  if (a.lastContactDays <= 7) score += 2;
+  else if (a.lastContactDays > 21) score -= 1;
+  if (a.competitorPresence && a.lastContactDays > 14) score -= 1;
+  if (a.leaseExpirationMonths <= 3) score += 2;
+  if (['Negotiation','Proposal'].includes(a.opportunityStage)) score += 1;
+  if (score >= 3) return { arrow: '↑', color: 'var(--accent-green)', label: 'Hot' };
+  if (score >= 1) return { arrow: '→', color: 'var(--accent-blue)', label: 'Stable' };
+  if (score <= -1) return { arrow: '↓', color: 'var(--accent-red)', label: 'Cooling' };
+  return { arrow: '→', color: 'var(--text-secondary)', label: 'Neutral' };
+}
+
+// ============================================================
 // TAB SWITCHING
 // ============================================================
 function switchTab(tabId, el) {
@@ -2487,6 +2837,7 @@ function filterByRep(val) {
   renderTop10();
   renderRiskMonitor();
   renderUrgencyHeatmap();
+  renderDailyBrief();
 }
 
 // ============================================================
@@ -2524,7 +2875,12 @@ function init() {
     renderRiskMonitor();
     renderUrgencyHeatmap();
     initSimDefaults();
+    renderDailyBrief();
+    startMRRTicker();
+    updateModelAccuracy();
   }, 800);
+
+  savePipelineSnapshot();
 
   // Refresh timestamp
   const now = new Date();
