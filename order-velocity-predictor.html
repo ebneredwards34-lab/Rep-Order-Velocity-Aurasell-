@@ -1651,67 +1651,64 @@ function renderKPICards() {
   const cards = [
     {
       label: 'Predicted Orders This Month',
-      animId: 'kpi-orders',
-      prefix: '',
+      endVal: vel.base,
       unit: ' orders',
       change: velChangeLabel,
       positive: velChangePositive,
       icon: '&#128200;',
       color: 'var(--accent-blue)',
-      animate: true
+      animate: true,
+      isFloat: true
     },
     {
       label: 'Pipeline Value',
-      animId: 'kpi-pipeline',
-      prefix: '$',
-      unit: 'K',
       endVal: pipeline,
-      formatFn: v => Math.round(v).toLocaleString(),
+      unit: 'K',
+      prefix: '$',
       change: pipeline > 2000 ? 'Strong pipeline' : 'Building pipeline',
       positive: true,
       icon: '&#128181;',
       color: 'var(--accent-green)',
-      animate: true
+      animate: true,
+      isInt: true
     },
     {
       label: 'Avg Win Probability',
-      animId: 'kpi-prob',
-      prefix: '',
-      unit: '%',
       endVal: avgProb,
-      formatFn: v => Math.round(v),
+      unit: '%',
       change: avgProb >= 60 ? 'Above target' : 'Below target',
       positive: avgProb >= 60,
       icon: '&#127919;',
       color: 'var(--accent-purple)',
-      animate: true
+      animate: true,
+      isInt: true
     },
     {
       label: 'Days Remaining in Month',
-      animId: 'kpi-days',
-      prefix: '',
-      unit: ' days',
       endVal: daysLeft,
-      formatFn: v => Math.round(v),
+      unit: ' days',
       change: daysLeft > 15 ? 'On pace' : 'Final push',
       positive: daysLeft > 15,
       icon: '&#128197;',
       color: 'var(--accent-orange)',
-      animate: false
+      animate: false,
+      isInt: true
     }
   ];
 
   const grid = document.getElementById('kpiGrid');
-  grid.innerHTML = cards.map((c, idx) => `
+  grid.innerHTML = cards.map((c, idx) => {
+    const displayVal = c.animate ? '0' : (c.prefix || '') + (c.isFloat ? c.endVal.toFixed(1) : Math.round(c.endVal).toLocaleString());
+    return `
     <div class="kpi-card" style="--kpi-color:${c.color};">
       <div class="kpi-icon">${c.icon}</div>
       <div class="kpi-label">${c.label}</div>
-      <div class="kpi-value glow-blue" data-target="${c.value}" data-unit="${c.unit}" data-animate="${idx < 3 ? 'yes' : 'no'}" id="kpi-val-${idx}">${idx < 3 ? '0' : c.value}<span>${c.unit}</span></div>
+      <div class="kpi-value glow-blue" id="kpi-val-${idx}" data-endval="${c.endVal}" data-prefix="${c.prefix||''}" data-float="${c.isFloat||false}">${displayVal}<span>${c.unit}</span></div>
       <div class="kpi-change ${c.positive ? 'delta-pos' : 'delta-neg'}">
         ${c.positive ? '&#9650;' : '&#9660;'} ${c.change}
       </div>
     </div>
-  `).join('');
+  `}).join('');
   animateKPICards();
 }
 
@@ -1722,34 +1719,33 @@ function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
 function animateKPICards() {
   const duration = 800;
+  const units = [' orders', 'K', '%'];
   for (let idx = 0; idx < 3; idx++) {
     const el = document.getElementById('kpi-val-' + idx);
     if (!el) continue;
-    const raw = el.getAttribute('data-target');
-    const unit = el.getAttribute('data-unit');
-    const hasPrefix = raw.startsWith('$');
-    const hasSuffix = raw.endsWith('K');
-    let numStr = raw.replace(/[$,K]/g, '');
-    const target = parseFloat(numStr);
+    const target = parseFloat(el.getAttribute('data-endval'));
+    const prefix = el.getAttribute('data-prefix') || '';
+    const isFloat = el.getAttribute('data-float') === 'true';
+    const unit = units[idx];
     if (isNaN(target)) continue;
     const start = performance.now();
-    function tick(now) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutQuart(progress);
-      const current = eased * target;
-      let display = '';
-      if (hasPrefix) display += '$';
-      if (Number.isInteger(target) && !raw.includes('.')) {
-        display += Math.round(current).toLocaleString();
-      } else {
-        display += current.toFixed(1);
+    (function(el, target, prefix, isFloat, unit) {
+      function tick(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = easeOutQuart(progress);
+        const current = eased * target;
+        let display = prefix;
+        if (isFloat) {
+          display += current.toFixed(1);
+        } else {
+          display += Math.round(current).toLocaleString();
+        }
+        el.innerHTML = display + '<span>' + unit + '</span>';
+        if (progress < 1) requestAnimationFrame(tick);
       }
-      if (hasSuffix) display += 'K';
-      el.innerHTML = display + '<span>' + unit + '</span>';
-      if (progress < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+      requestAnimationFrame(tick);
+    })(el, target, prefix, isFloat, unit);
   }
 }
 
@@ -2360,7 +2356,7 @@ function renderInsights() {
 // SIMULATION
 // ============================================================
 const SIM_BASELINE = computeVelocityForAccounts(ACCOUNTS);
-const SIM_DEFAULTS = {};
+let SIM_DEFAULTS = {};
 
 function initSimDefaults() {
   const ids = ['contactRate', 'qualityScore', 'competitivePressure', 'repActivity', 'marketDemand'];
