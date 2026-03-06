@@ -582,6 +582,54 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-6px); opacity: 1; }
 }
+/* TOAST */
+.toast {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  background: rgba(16,185,129,0.15);
+  border: 1px solid rgba(16,185,129,0.4);
+  color: var(--accent-green);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  animation: toast-in 0.3s ease, toast-out 0.4s ease 2.1s forwards;
+  pointer-events: none;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-out { from { opacity: 1; } to { opacity: 0; } }
+/* COACHING ALERTS */
+.coaching-rep-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+.coaching-rep-card:hover { border-color: rgba(59,130,246,0.3); }
+.coaching-rep-card.selected { border-color: var(--accent-blue); background: rgba(59,130,246,0.06); box-shadow: 0 0 0 1px rgba(59,130,246,0.2); }
+.coaching-alert-card {
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-left: 3px solid;
+}
+/* GOAL TRACKER */
+.goal-tracker-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
 </style>
 </head>
 <body>
@@ -623,6 +671,9 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   <div class="nav-tab" onclick="switchTab('manager-view', this)">
     <span class="nav-tab-icon">&#128101;</span> Manager View
   </div>
+  <div class="nav-tab" onclick="switchTab('coaching-alerts', this)">
+    <span class="nav-tab-icon">&#127919;</span> Coaching Alerts
+  </div>
   <div class="nav-tab" onclick="switchTab('ai-insights', this)">
     <span class="nav-tab-icon">&#9889;</span> AI Insights
   </div>
@@ -652,8 +703,14 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   </div>
 
   <div id="content-rep">
+    <!-- GREETING -->
+    <div id="repGreeting" style="font-size:15px;color:var(--text-secondary);margin-bottom:16px;"></div>
+
     <!-- KPI CARDS -->
     <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- GOAL TRACKER -->
+    <div id="goalTracker"></div>
 
     <!-- VELOCITY + FUNNEL -->
     <div class="grid-2" style="margin-bottom:20px;">
@@ -829,6 +886,25 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 </div>
 
 <!-- ============================
+     TAB 3.5: COACHING ALERTS
+     ============================ -->
+<div id="tab-coaching-alerts" class="tab-content">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent-orange),var(--accent-red));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(245,158,11,0.4);">&#127919;</div>
+    <div>
+      <div class="section-title">Rep Coaching Alerts</div>
+      <div class="section-sub">Data-driven coaching signals for 1:1s and team standups</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:290px 1fr;gap:24px;align-items:start;">
+    <div id="coachingRepList"></div>
+    <div id="coachingDetailPanel">
+      <div style="text-align:center;padding:60px 20px;color:var(--text-secondary);">Select a rep to view coaching details</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
      TAB 4: AI INSIGHTS
      ============================ -->
 <div id="tab-ai-insights" class="tab-content">
@@ -851,6 +927,23 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     <div>
       <div class="section-title">Ask Aurasell AI</div>
       <div class="section-sub">Chat with AI about your accounts, pipeline, and sales strategy</div>
+    </div>
+    <div id="chatApiStatus" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;"></div>
+  </div>
+  <!-- API KEY BANNER -->
+  <div id="apiKeyBanner" style="display:none;margin-bottom:16px;">
+    <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-left:4px solid var(--accent-blue);border-radius:10px;padding:20px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:20px;">&#128273;</span>
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);">Connect Aurasell AI</div>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px;">
+        To activate the AI assistant, enter your Anthropic API key below. It stays in memory only — never stored or transmitted elsewhere.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="password" id="apiKeyInput" class="search-bar" style="flex:1;" placeholder="sk-ant-..." onkeydown="if(event.key==='Enter')activateApiKey()">
+        <button class="btn-export" onclick="activateApiKey()" style="padding:8px 20px;">Activate</button>
+      </div>
     </div>
   </div>
   <div class="card" style="height:calc(100vh - 260px);display:flex;flex-direction:column;">
@@ -1075,10 +1168,349 @@ let currentRep = 'all';
 let accountSortKey = 'score';
 let accountSortAsc = false;
 let expandedAccountId = null;
+let currentCoachingRep = null;
 
 function getFilteredAccounts() {
   if (currentRep === 'all') return ACCOUNTS;
   return ACCOUNTS.filter(a => a.repAssigned === currentRep);
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(message) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = message;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+// ============================================================
+// API KEY / CHAT STATUS
+// ============================================================
+function activateApiKey() {
+  const key = (document.getElementById('apiKeyInput') || {}).value;
+  if (!key || !key.trim()) return;
+  window.ANTHROPIC_API_KEY = key.trim();
+  const banner = document.getElementById('apiKeyBanner');
+  if (banner) banner.style.display = 'none';
+  updateChatApiStatus();
+  showToast('✓ Aurasell AI connected');
+}
+
+function updateChatApiStatus() {
+  const el = document.getElementById('chatApiStatus');
+  if (!el) return;
+  if (window.ANTHROPIC_API_KEY) {
+    el.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent-green);display:inline-block;box-shadow:0 0 6px var(--accent-green);"></span><span style="color:var(--accent-green);font-weight:600;margin-left:4px;">AI Active</span>';
+  } else {
+    el.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;opacity:0.5;"></span><span style="color:var(--text-secondary);margin-left:4px;">Requires API Key</span>';
+  }
+}
+
+function initChatTab() {
+  const banner = document.getElementById('apiKeyBanner');
+  if (banner) banner.style.display = window.ANTHROPIC_API_KEY ? 'none' : 'block';
+  updateChatApiStatus();
+}
+
+// ============================================================
+// REP DASHBOARD GREETING
+// ============================================================
+function renderGreeting() {
+  const el = document.getElementById('repGreeting');
+  if (!el) return;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const repLabel = currentRep === 'all' ? 'Team' : currentRep.split(' ')[0];
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  el.innerHTML = greeting + ', ' + repLabel + ' \u2014 here\'s your pipeline snapshot for <span style="color:var(--accent-blue);">' + dateStr + '</span>';
+}
+
+// ============================================================
+// MONTHLY GOAL TRACKER
+// ============================================================
+function renderGoalTracker() {
+  const el = document.getElementById('goalTracker');
+  if (!el) return;
+  const filtered = getFilteredAccounts();
+  const vel = computeVelocityForAccounts(filtered);
+  const target = 9;
+  const pct = Math.min(Math.round((vel.base / target) * 100), 100);
+  const gap = target - vel.base;
+  const gapLabel = gap > 0 ? gap.toFixed(1) + ' behind' : 'On Track ✓';
+  const ringColor = pct >= 90 ? 'var(--accent-green)' : pct >= 60 ? 'var(--accent-blue)' : 'var(--accent-orange)';
+  const ringColorHex = pct >= 90 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f59e0b';
+
+  const r = 32, cx = 40, cy = 40;
+  const circumference = 2 * Math.PI * r;
+  const dashOffset = circumference * (1 - pct / 100);
+
+  const negotiationAccounts = filtered
+    .filter(a => a.opportunityStage === 'Negotiation')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const pathText = negotiationAccounts.length > 0
+    ? negotiationAccounts.length + ' account' + (negotiationAccounts.length > 1 ? 's' : '') + ' in Negotiation represent your clearest path to close. Prioritize ' + negotiationAccounts.map(a => a.accountName).join(', ') + '.'
+    : 'Advance your highest-scored Proposal accounts to Negotiation to accelerate velocity.';
+
+  el.innerHTML = `
+    <div class="goal-tracker-card">
+      <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ringColor}" stroke-width="8"
+            stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${dashOffset.toFixed(2)}"
+            stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"
+            style="transition:stroke-dashoffset 1s ease;filter:drop-shadow(0 0 4px ${ringColorHex});"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+          <div style="font-size:15px;font-weight:800;color:${ringColor};">${pct}%</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;flex:1;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">&#127919; Monthly Goal Tracker</div>
+          <div style="display:flex;gap:10px;">
+            <div style="text-align:center;padding:8px 14px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid var(--border);">
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Target</div>
+              <div style="font-size:18px;font-weight:700;">${target}</div>
+            </div>
+            <div style="text-align:center;padding:8px 14px;background:rgba(59,130,246,0.08);border-radius:8px;border:1px solid rgba(59,130,246,0.2);">
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Projected</div>
+              <div style="font-size:18px;font-weight:700;color:var(--accent-blue);">${vel.base.toFixed(1)}</div>
+            </div>
+            <div style="text-align:center;padding:8px 14px;background:${gap > 0 ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)'};border-radius:8px;border:1px solid ${gap > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)'};">
+              <div style="font-size:10px;color:var(--text-secondary);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;">Gap</div>
+              <div style="font-size:14px;font-weight:700;color:${gap > 0 ? 'var(--accent-orange)' : 'var(--accent-green)'};">${gapLabel}</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px;padding:12px 16px;background:rgba(59,130,246,0.05);border-radius:8px;border-left:3px solid var(--accent-blue);">
+          <div style="font-size:10px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Path to Close</div>
+          <div style="font-size:13px;line-height:1.5;color:var(--text-primary);">${pathText}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// COACHING ALERTS
+// ============================================================
+function generateCoachingAlerts(repAccounts) {
+  const alerts = [];
+
+  const cold = repAccounts.filter(a => a.lastContactDays > COLD_ACCOUNT_DAYS && a.score >= 55);
+  if (cold.length > 0) alerts.push({
+    level: 'high', icon: '&#129398;',
+    title: cold.length + ' high-value account' + (cold.length > 1 ? 's' : '') + ' going cold',
+    detail: cold.map(a => a.accountName).join(', ') + ' \u2014 last contact ' + Math.max(...cold.map(a => a.lastContactDays)) + ' days ago.',
+    action: 'Schedule outreach calls this week before competitive encroachment.'
+  });
+
+  const stalled = repAccounts.filter(a => ['Qualified','Proposal'].includes(a.opportunityStage) && a.lastContactDays > 14);
+  if (stalled.length > 0) alerts.push({
+    level: 'medium', icon: '&#9208;&#65039;',
+    title: stalled.length + ' deal' + (stalled.length > 1 ? 's' : '') + ' stalled in mid-funnel',
+    detail: stalled.map(a => a.accountName).join(', ') + ' have not progressed. Deals in Proposal/Qualified for 14+ days without recent contact.',
+    action: 'Review deal blockers in next 1:1. Propose stage advancement criteria.'
+  });
+
+  const compRisk = repAccounts.filter(a => a.competitorPresence && a.score >= 60 && a.lastContactDays > 10);
+  if (compRisk.length > 0) alerts.push({
+    level: 'high', icon: '&#9876;&#65039;',
+    title: 'Competitive pressure on ' + compRisk.length + ' account' + (compRisk.length > 1 ? 's' : ''),
+    detail: compRisk.map(a => a.accountName).join(', ') + ' have competitor presence and haven\'t been engaged recently.',
+    action: 'Deploy competitive battle cards. Focus on unique Xerox value prop.'
+  });
+
+  const leaseUrgent = repAccounts.filter(a => a.leaseExpirationMonths <= 6 && !['Negotiation','Closed'].includes(a.opportunityStage));
+  if (leaseUrgent.length > 0) alerts.push({
+    level: 'medium', icon: '&#128197;',
+    title: leaseUrgent.length + ' lease expir' + (leaseUrgent.length > 1 ? 'ies' : 'y') + ' within 6 months \u2014 not yet in Negotiation',
+    detail: leaseUrgent.map(a => a.accountName).join(', ') + ' have urgent lease windows but haven\'t advanced to Negotiation stage.',
+    action: 'Escalate to renewal proposal immediately. Loop in solutions team.'
+  });
+
+  const lowSat = repAccounts.filter(a => a.customerSatisfactionScore <= 5 && a.serviceTicketFrequency === 'high');
+  if (lowSat.length > 0) alerts.push({
+    level: 'high', icon: '&#9888;&#65039;',
+    title: 'Churn risk: ' + lowSat.length + ' dissatisfied account' + (lowSat.length > 1 ? 's' : ''),
+    detail: lowSat.map(a => a.accountName).join(', ') + ' show low satisfaction (\u22645) combined with high service ticket volume.',
+    action: 'Initiate proactive service review. Consider executive sponsorship call.'
+  });
+
+  if (alerts.length === 0) alerts.push({
+    level: 'good', icon: '&#9989;',
+    title: 'No critical alerts',
+    detail: 'This rep\'s pipeline looks healthy. No immediate coaching actions required.',
+    action: 'Focus on advancing deals from Qualified \u2192 Proposal \u2192 Negotiation.'
+  });
+
+  return alerts;
+}
+
+function renderCoachingAlerts() {
+  const repListEl = document.getElementById('coachingRepList');
+  const detailEl = document.getElementById('coachingDetailPanel');
+  if (!repListEl || !detailEl) return;
+
+  const repColors = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444'];
+
+  const repData = REPS.map((rep, idx) => {
+    const repAccounts = ACCOUNTS.filter(a => a.repAssigned === rep);
+    const alerts = generateCoachingAlerts(repAccounts);
+    const highCount = alerts.filter(a => a.level === 'high').length;
+    const vel = computeVelocityForAccounts(repAccounts);
+    const color = repColors[idx];
+    const initials = rep.split(' ').map(w => w[0]).join('');
+    return { rep, repAccounts, alerts, highCount, vel, color, initials };
+  });
+
+  if (!currentCoachingRep) {
+    const mostAlerted = repData.reduce((best, r) => r.highCount > best.highCount ? r : best, repData[0]);
+    currentCoachingRep = mostAlerted.rep;
+  }
+
+  const target = 9;
+  repListEl.innerHTML = repData.map(r => {
+    const pct = Math.min(Math.round((r.vel.base / target) * 100), 100);
+    const nonGood = r.alerts.filter(a => a.level !== 'good').length;
+    const alertBg = r.highCount > 2 ? 'var(--accent-red)' : nonGood > 0 ? 'var(--accent-orange)' : 'var(--accent-green)';
+    const badgeHtml = nonGood > 0
+      ? `<span style="background:${alertBg};color:white;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">${nonGood}</span>`
+      : `<span style="background:rgba(16,185,129,0.15);color:var(--accent-green);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">&#10003;</span>`;
+    const isSelected = r.rep === currentCoachingRep;
+    return `
+      <div class="coaching-rep-card ${isSelected ? 'selected' : ''}" onclick="selectCoachingRep('${r.rep}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:${r.color}22;color:${r.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${r.initials}</div>
+            <span style="font-weight:600;font-size:13px;">${r.rep}</span>
+          </div>
+          ${badgeHtml}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:5px;">
+          <span>Velocity</span>
+          <span style="color:${r.color};font-weight:700;">${r.vel.base.toFixed(1)} / ${target}</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${r.color};border-radius:2px;transition:width 0.8s ease;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const selected = repData.find(r => r.rep === currentCoachingRep);
+  if (!selected) return;
+
+  const vel = selected.vel;
+  const repAccounts = selected.repAccounts;
+  const atRiskCount = repAccounts.filter(a =>
+    (a.lastContactDays > COLD_ACCOUNT_DAYS && a.score > 50) ||
+    (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) ||
+    (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect')
+  ).length;
+  const pipeline = repAccounts.reduce((s, a) => s + a.dealSizeEstimate, 0);
+  const avgWin = repAccounts.length > 0 ? Math.round(repAccounts.reduce((s, a) => s + a.probability, 0) / repAccounts.length) : 0;
+
+  const levelStyle = {
+    high:   { border: 'var(--accent-red)',    bg: 'rgba(239,68,68,0.04)'  },
+    medium: { border: 'var(--accent-orange)', bg: 'rgba(245,158,11,0.04)' },
+    good:   { border: 'var(--accent-green)',  bg: 'rgba(16,185,129,0.04)' }
+  };
+
+  const alertsHtml = selected.alerts.map(alert => {
+    const s = levelStyle[alert.level] || levelStyle.medium;
+    return `
+      <div class="coaching-alert-card" style="border-left-color:${s.border};background:${s.bg};">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:18px;line-height:1.4;">${alert.icon}</span>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${alert.title}</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:6px;">${alert.detail}</div>
+            <div style="font-size:12px;color:var(--accent-green);font-weight:600;">\u2192 ${alert.action}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const topAccounts = [...repAccounts].sort((a, b) => b.score - a.score).slice(0, 7);
+  const tableRows = topAccounts.map(a => {
+    const sc = getScoreColor(a.score);
+    const cc = a.lastContactDays > COLD_ACCOUNT_DAYS ? 'var(--accent-red)' : 'var(--text-secondary)';
+    const ac = getActionColor(a.recommendedAction);
+    return `
+      <tr>
+        <td style="font-weight:600;font-size:12px;">${a.accountName}</td>
+        <td><span class="badge badge-${getStageColor(a.opportunityStage)}" style="font-size:10px;">${a.opportunityStage}</span></td>
+        <td style="color:${sc};font-weight:700;">${a.score}</td>
+        <td style="color:${cc};font-size:12px;">${a.lastContactDays}d ago</td>
+        <td><span class="action-tag" style="background:${ac}22;color:${ac};border:1px solid ${ac}33;font-size:10px;">${a.recommendedAction}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  const highAlerts = selected.alerts.filter(a => a.level === 'high').length;
+  const medAlerts = selected.alerts.filter(a => a.level === 'medium').length;
+
+  detailEl.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:${selected.color}22;color:${selected.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">${selected.initials}</div>
+        <div>
+          <div style="font-weight:700;font-size:15px;">${selected.rep}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${highAlerts} high priority &bull; ${medAlerts} medium priority alerts</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div style="text-align:center;padding:12px;background:rgba(59,130,246,0.06);border-radius:8px;border:1px solid rgba(59,130,246,0.15);">
+          <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Predicted</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent-blue);">${vel.base.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--text-secondary);">/ 9 target</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(16,185,129,0.06);border-radius:8px;border:1px solid rgba(16,185,129,0.15);">
+          <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Pipeline</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent-green);">$${pipeline}K</div>
+          <div style="font-size:10px;color:var(--text-secondary);">${repAccounts.length} accounts</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(139,92,246,0.06);border-radius:8px;border:1px solid rgba(139,92,246,0.15);">
+          <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Avg Win Prob</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent-purple);">${avgWin}%</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(239,68,68,0.06);border-radius:8px;border:1px solid rgba(239,68,68,0.15);">
+          <div style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">At-Risk</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent-red);">${atRiskCount}</div>
+          <div style="font-size:10px;color:var(--text-secondary);">accounts</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">Coaching Alerts</div>
+      ${alertsHtml}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Account Breakdown &mdash; Top 7 by Score</div></div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th><th>Stage</th><th>Score</th><th>Last Contact</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function selectCoachingRep(repName) {
+  currentCoachingRep = repName;
+  renderCoachingAlerts();
 }
 
 // ============================================================
@@ -1942,12 +2374,26 @@ async function sendChatMessage() {
   container.innerHTML += '<div class="chat-msg chat-msg-ai" id="' + typingId + '"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
   container.scrollTop = container.scrollHeight;
 
+  const apiKey = window.ANTHROPIC_API_KEY || '';
+  if (!apiKey) {
+    const noKeyEl = document.getElementById(typingId);
+    if (noKeyEl) noKeyEl.innerHTML = '<span style="color:var(--accent-orange);">Please connect your API key using the banner above to activate Aurasell AI.</span>';
+    conversationHistory.pop();
+    container.scrollTop = container.scrollHeight;
+    return;
+  }
+
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 1000,
         system: buildSystemPrompt(),
         messages: conversationHistory
@@ -2000,7 +2446,9 @@ function switchTab(tabId, el) {
 
   if (tabId === 'account-intel') renderAccountTable();
   if (tabId === 'manager-view') renderManagerView();
+  if (tabId === 'coaching-alerts') renderCoachingAlerts();
   if (tabId === 'ai-insights') renderInsights();
+  if (tabId === 'ai-chat') initChatTab();
   if (tabId === 'simulation') updateSimulation();
 }
 
@@ -2009,7 +2457,9 @@ function switchTab(tabId, el) {
 // ============================================================
 function filterByRep(val) {
   currentRep = val;
+  renderGreeting();
   renderKPICards();
+  renderGoalTracker();
   renderVelocityGauge();
   renderFunnel();
   renderTop10();
@@ -2034,7 +2484,9 @@ function init() {
   if (skeleton) { skeleton.style.display = 'block'; content.style.display = 'none'; }
   setTimeout(() => {
     if (skeleton) { skeleton.style.display = 'none'; content.style.display = 'block'; }
+    renderGreeting();
     renderKPICards();
+    renderGoalTracker();
     renderVelocityGauge();
     renderFunnel();
     renderTop10();
