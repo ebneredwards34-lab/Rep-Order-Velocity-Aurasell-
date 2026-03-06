@@ -360,6 +360,7 @@ tr.expanded-detail td {
   border-radius: 10px;
   padding: 16px;
   border-left: 3px solid var(--risk-color, var(--accent-orange));
+  box-shadow: inset 3px 0 0 var(--risk-color, var(--accent-orange));
   transition: transform 0.2s;
 }
 .risk-card:hover { transform: translateX(4px); }
@@ -536,6 +537,51 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 .spark-bar { width: 4px; border-radius: 2px 2px 0 0; background: var(--accent-blue); }
 /* ACTIVE STATE HIGHLIGHT */
 .active-rep-highlight { border-color: rgba(59,130,246,0.4) !important; }
+/* CHAT */
+.chat-chip {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.chat-chip:hover { border-color: var(--accent-blue); color: var(--text-primary); background: rgba(59,130,246,0.08); }
+.chat-msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+.chat-msg-user {
+  align-self: flex-end;
+  background: var(--accent-blue);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg-ai {
+  align-self: flex-start;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 12px 16px; }
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary);
+  animation: typingBounce 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
 </style>
 </head>
 <body>
@@ -579,6 +625,9 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   </div>
   <div class="nav-tab" onclick="switchTab('ai-insights', this)">
     <span class="nav-tab-icon">&#9889;</span> AI Insights
+  </div>
+  <div class="nav-tab" onclick="switchTab('ai-chat', this)">
+    <span class="nav-tab-icon">&#129302;</span> Ask Aurasell AI
   </div>
   <div class="nav-tab" onclick="switchTab('simulation', this)">
     <span class="nav-tab-icon">&#127919;</span> Simulation
@@ -633,7 +682,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     <div class="card" style="margin-bottom:20px;">
       <div class="card-header">
         <div>
-          <div class="card-title">&#11088; Top 10 Priority Accounts</div>
+          <div class="card-title" id="top10Heading">&#11088; Top 10 Priority Accounts</div>
           <div class="card-subtitle">Ranked by AI opportunity score</div>
         </div>
       </div>
@@ -665,6 +714,17 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         </div>
       </div>
       <div class="risk-grid" id="riskGrid"></div>
+    </div>
+
+    <!-- DEAL URGENCY HEATMAP -->
+    <div class="card" style="margin-top:20px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">&#128293; Lease Expiration Timeline</div>
+          <div class="card-subtitle">Deal urgency by lease expiration window</div>
+        </div>
+      </div>
+      <div id="urgencyHeatmap"></div>
     </div>
   </div>
 </div>
@@ -783,7 +843,40 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 </div>
 
 <!-- ============================
-     TAB 5: SIMULATION
+     TAB 5.5: AI CHAT
+     ============================ -->
+<div id="tab-ai-chat" class="tab-content">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-green));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(59,130,246,0.4);">&#129302;</div>
+    <div>
+      <div class="section-title">Ask Aurasell AI</div>
+      <div class="section-sub">Chat with AI about your accounts, pipeline, and sales strategy</div>
+    </div>
+  </div>
+  <div class="card" style="height:calc(100vh - 260px);display:flex;flex-direction:column;">
+    <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <div id="chatStarters" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:auto;margin-bottom:auto;">
+        <div style="text-align:center;margin-bottom:16px;width:100%;">
+          <div style="font-size:24px;margin-bottom:8px;">&#129302;</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">How can I help?</div>
+          <div style="font-size:12px;color:var(--text-secondary);">Ask me anything about your accounts and pipeline</div>
+        </div>
+        <button class="chat-chip" onclick="sendChip(this.textContent)">Which accounts should I prioritize today?</button>
+        <button class="chat-chip" onclick="sendChip(this.textContent)">Who is at risk of churning?</button>
+        <button class="chat-chip" onclick="sendChip(this.textContent)">Which rep needs the most support?</button>
+        <button class="chat-chip" onclick="sendChip(this.textContent)">What's our biggest competitive threat?</button>
+        <button class="chat-chip" onclick="sendChip(this.textContent)">Where should I focus to hit the 9-order target?</button>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;">
+      <input type="text" id="chatInput" class="search-bar" style="flex:1;width:auto;" placeholder="Ask Aurasell AI..." onkeydown="if(event.key==='Enter')sendChatMessage()">
+      <button class="btn-export" onclick="sendChatMessage()" style="padding:8px 20px;">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================
+     TAB 6: SIMULATION
      ============================ -->
 <div id="tab-simulation" class="tab-content">
   <div class="section-title">Order Velocity Simulation</div>
@@ -821,6 +914,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         <div class="sim-big-val" id="simPredOrders">--</div>
         <div class="sim-delta" id="simDelta"></div>
         <div class="sim-bars" id="simBars"></div>
+        <div id="simNarrative" style="margin-top:16px;"></div>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:16px;">&#128200; Scenario Impact Visualization</div>
@@ -836,6 +930,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 // ============================================================
 // MOCK DATA - 35 ACCOUNTS
 // ============================================================
+const COLD_ACCOUNT_DAYS = 21;
 const REPS = ['Sarah Chen','Marcus Thompson','Priya Patel','James Rodriguez','Emily Watson'];
 
 const ACCOUNTS_RAW = [
@@ -947,7 +1042,7 @@ function getActionColor(action) {
 // Enrich accounts
 const ACCOUNTS = ACCOUNTS_RAW.map(a => {
   const score = computeScore(a);
-  const probability = score; // probability% = score
+  const probability = Math.round(100 / (1 + Math.exp(-0.08 * (score - 55))));
   const recommendedAction = getRecommendedAction(a, score);
   return { ...a, score, probability, recommendedAction };
 }).sort((a,b) => b.score - a.score);
@@ -992,17 +1087,24 @@ function getFilteredAccounts() {
 function renderKPICards() {
   const filtered = getFilteredAccounts();
   const vel = computeVelocityForAccounts(filtered);
-  const pipeline = filtered.reduce((s,a) => s + a.dealSizeEstimate, 0);
-  const avgProb = Math.round(filtered.reduce((s,a) => s + a.probability, 0) / filtered.length);
-  const daysLeft = 26; // Mock: days remaining in month
+  const pipeline = filtered.length > 0 ? filtered.reduce((s,a) => s + a.dealSizeEstimate, 0) : 0;
+  const avgProb = filtered.length > 0 ? Math.round(filtered.reduce((s,a) => s + a.probability, 0) / filtered.length) : 0;
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const daysLeft = endOfMonth.getDate() - now.getDate();
+
+  const lastMonthBase = vel.base * 0.88;
+  const realDelta = lastMonthBase > 0 ? ((vel.base - lastMonthBase) / lastMonthBase * 100).toFixed(0) : 0;
+  const velChangePositive = realDelta >= 0;
+  const velChangeLabel = (velChangePositive ? '+' : '') + realDelta + '% vs last month';
 
   const cards = [
     {
       label: 'Predicted Orders This Month',
       value: vel.base.toFixed(1),
       unit: ' orders',
-      change: '+12% vs last month',
-      positive: true,
+      change: velChangeLabel,
+      positive: velChangePositive,
       icon: '&#128200;',
       color: 'var(--accent-blue)'
     },
@@ -1036,16 +1138,55 @@ function renderKPICards() {
   ];
 
   const grid = document.getElementById('kpiGrid');
-  grid.innerHTML = cards.map(c => `
+  grid.innerHTML = cards.map((c, idx) => `
     <div class="kpi-card" style="--kpi-color:${c.color};">
       <div class="kpi-icon">${c.icon}</div>
       <div class="kpi-label">${c.label}</div>
-      <div class="kpi-value glow-blue">${c.value}<span>${c.unit}</span></div>
+      <div class="kpi-value glow-blue" data-target="${c.value}" data-unit="${c.unit}" data-animate="${idx < 3 ? 'yes' : 'no'}" id="kpi-val-${idx}">${idx < 3 ? '0' : c.value}<span>${c.unit}</span></div>
       <div class="kpi-change ${c.positive ? 'delta-pos' : 'delta-neg'}">
         ${c.positive ? '&#9650;' : '&#9660;'} ${c.change}
       </div>
     </div>
   `).join('');
+  animateKPICards();
+}
+
+// ============================================================
+// ANIMATED KPI COUNTERS
+// ============================================================
+function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
+
+function animateKPICards() {
+  const duration = 800;
+  for (let idx = 0; idx < 3; idx++) {
+    const el = document.getElementById('kpi-val-' + idx);
+    if (!el) continue;
+    const raw = el.getAttribute('data-target');
+    const unit = el.getAttribute('data-unit');
+    const hasPrefix = raw.startsWith('$');
+    const hasSuffix = raw.endsWith('K');
+    let numStr = raw.replace(/[$,K]/g, '');
+    const target = parseFloat(numStr);
+    if (isNaN(target)) continue;
+    const start = performance.now();
+    function tick(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutQuart(progress);
+      const current = eased * target;
+      let display = '';
+      if (hasPrefix) display += '$';
+      if (Number.isInteger(target) && !raw.includes('.')) {
+        display += Math.round(current).toLocaleString();
+      } else {
+        display += current.toFixed(1);
+      }
+      if (hasSuffix) display += 'K';
+      el.innerHTML = display + '<span>' + unit + '</span>';
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
 }
 
 // ============================================================
@@ -1141,6 +1282,11 @@ function renderFunnel() {
   stages.forEach((stage, i) => {
     const pct = Math.round((counts[i] / maxCount) * 100);
     const barW = Math.max(pct, 8);
+    let convLabel = '';
+    if (i > 0 && counts[i - 1] > 0) {
+      const convRate = Math.round((counts[i] / counts[i - 1]) * 100);
+      convLabel = '<span style="font-size:10px;color:var(--text-secondary);margin-left:6px;opacity:0.7;">(&#8595; ' + convRate + '%)</span>';
+    }
     html += `
       <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;">
         <div style="width:90px;font-size:12px;color:var(--text-secondary);text-align:right;">${stage}</div>
@@ -1149,7 +1295,7 @@ function renderFunnel() {
             <span style="font-size:12px;font-weight:700;color:white;">${counts[i]}</span>
           </div>
         </div>
-        <div style="width:70px;font-size:11px;color:var(--text-secondary);">$${values[i]}K</div>
+        <div style="width:100px;font-size:11px;color:var(--text-secondary);">$${values[i]}K ${convLabel}</div>
       </div>
     `;
   });
@@ -1161,7 +1307,11 @@ function renderFunnel() {
 // TOP 10 PRIORITY TABLE
 // ============================================================
 function renderTop10() {
-  const filtered = getFilteredAccounts().slice(0, 10);
+  const allFiltered = getFilteredAccounts();
+  const count = Math.min(allFiltered.length, 10);
+  const headingEl = document.getElementById('top10Heading');
+  if (headingEl) headingEl.innerHTML = '&#11088; Top ' + count + ' Priority Accounts';
+  const filtered = allFiltered.slice(0, 10);
   const rows = filtered.map((a, i) => {
     const rankN = i + 1;
     const rankClass = rankN === 1 ? 'rank-1' : rankN === 2 ? 'rank-2' : rankN === 3 ? 'rank-3' : 'rank-other';
@@ -1191,6 +1341,10 @@ function renderTop10() {
               <div class="tooltip-row"><span>Satisfaction (${a.customerSatisfactionScore})</span><span style="color:var(--accent-blue);">${a.customerSatisfactionScore>=8?10:a.customerSatisfactionScore>=6?7:3}pts</span></div>
               <div class="tooltip-row"><span>Service Tickets</span><span style="color:var(--accent-blue);">${a.serviceTicketFrequency==='high'?8:a.serviceTicketFrequency==='medium'?5:2}pts</span></div>
               <div class="tooltip-row"><span>Engagement (${a.lastContactDays}d)</span><span style="color:var(--accent-blue);">${a.lastContactDays<=7?10:a.lastContactDays<=14?7:a.lastContactDays<=30?4:0}pts</span></div>
+              <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">
+                <div class="tooltip-row" style="font-weight:700;"><span>Total</span><span style="color:${getScoreColor(a.score)};">${a.score}/100</span></div>
+                <div class="tooltip-row"><span>Rating</span><span style="color:${getScoreColor(a.score)};font-weight:700;">${a.score>=75?'Excellent':a.score>=55?'Good':a.score>=35?'Fair':'Low'}</span></div>
+              </div>
             </div>
           </div>
         </td>
@@ -1210,14 +1364,14 @@ function renderTop10() {
 function renderRiskMonitor() {
   const filtered = getFilteredAccounts();
   const atRisk = filtered.filter(a => {
-    return (a.lastContactDays > 21 && a.score > 50) ||
+    return (a.lastContactDays > COLD_ACCOUNT_DAYS && a.score > 50) ||
            (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) ||
            (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect') ||
            (a.printVolumeTrend === 'declining' && a.competitorPresence);
   }).slice(0, 6);
 
   function getRiskReason(a) {
-    if (a.lastContactDays > 21 && a.score > 50) return `No contact in ${a.lastContactDays} days - high-value account going cold`;
+    if (a.lastContactDays > COLD_ACCOUNT_DAYS && a.score > 50) return `No contact in ${a.lastContactDays} days - high-value account going cold`;
     if (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) return 'High ticket frequency + low satisfaction - churn risk';
     if (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect') return `Lease expires in ${a.leaseExpirationMonths}mo but still at Prospect stage`;
     if (a.printVolumeTrend === 'declining' && a.competitorPresence) return 'Declining print volume + competitor presence - displacement risk';
@@ -1226,12 +1380,17 @@ function renderRiskMonitor() {
 
   function getRiskColor(a) {
     if (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) return 'var(--accent-red)';
-    if (a.leaseExpirationMonths <= 3) return 'var(--accent-orange)';
-    return 'var(--accent-orange)';
+    if (a.leaseExpirationMonths <= 3 && a.opportunityStage === 'Prospect') return 'var(--accent-orange)';
+    return '#f59e0b';
+  }
+
+  function getRiskGlow(a) {
+    if (a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 5) return '0 0 12px rgba(239,68,68,0.3)';
+    return 'none';
   }
 
   const html = atRisk.map(a => `
-    <div class="risk-card" style="--risk-color:${getRiskColor(a)};">
+    <div class="risk-card" style="--risk-color:${getRiskColor(a)};box-shadow:inset 3px 0 0 ${getRiskColor(a)}, ${getRiskGlow(a)};">
       <div class="risk-card-top">
         <div class="risk-name">${a.accountName}</div>
         <span class="badge badge-${a.score >= 60 ? 'blue' : 'gray'}">${a.score}</span>
@@ -1245,6 +1404,41 @@ function renderRiskMonitor() {
     </div>
   `).join('');
   document.getElementById('riskGrid').innerHTML = html || '<div style="color:var(--text-secondary);padding:16px;">No at-risk accounts detected.</div>';
+}
+
+// ============================================================
+// DEAL URGENCY HEATMAP
+// ============================================================
+function renderUrgencyHeatmap() {
+  const filtered = getFilteredAccounts();
+  const bands = [
+    { label: '&#128308; Critical (0-3 months)', filter: a => a.leaseExpirationMonths <= 3, color: 'var(--accent-red)', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' },
+    { label: '&#128992; Upcoming (4-6 months)', filter: a => a.leaseExpirationMonths > 3 && a.leaseExpirationMonths <= 6, color: 'var(--accent-orange)', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
+    { label: '&#128309; Pipeline (7-12 months)', filter: a => a.leaseExpirationMonths > 6 && a.leaseExpirationMonths <= 12, color: 'var(--accent-blue)', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)' }
+  ];
+
+  let html = '';
+  bands.forEach(band => {
+    const accounts = filtered.filter(band.filter);
+    html += '<div style="margin-bottom:16px;padding:14px;background:' + band.bg + ';border:1px solid ' + band.border + ';border-radius:10px;">';
+    html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:' + band.color + ';">' + band.label + '</div>';
+    if (accounts.length === 0) {
+      html += '<div style="font-size:12px;color:var(--text-secondary);font-style:italic;">None in this window.</div>';
+    } else {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      accounts.forEach(a => {
+        const sc = getScoreColor(a.score);
+        html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:' + sc + ';display:inline-block;"></span>';
+        html += '<span style="font-weight:600;">' + a.accountName + '</span>';
+        html += '<span style="color:var(--text-secondary);">&#183; $' + a.dealSizeEstimate + 'K</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  document.getElementById('urgencyHeatmap').innerHTML = html;
 }
 
 // ============================================================
@@ -1321,7 +1515,7 @@ function renderAccountTable() {
         <td>$${a.dealSizeEstimate}K</td>
         <td><span class="badge badge-${getStageColor(a.opportunityStage)}">${a.opportunityStage}</span></td>
         <td style="font-size:12px;">${a.repAssigned.split(' ')[0]}</td>
-        <td style="color:${a.lastContactDays > 21 ? 'var(--accent-red)' : 'var(--text-secondary)'};">${a.lastContactDays}d ago</td>
+        <td style="color:${a.lastContactDays > COLD_ACCOUNT_DAYS ? 'var(--accent-red)' : 'var(--text-secondary)'};">${a.lastContactDays}d ago</td>
         <td><span class="action-tag" style="background:${getActionColor(a.recommendedAction)}22;color:${getActionColor(a.recommendedAction)};border:1px solid ${getActionColor(a.recommendedAction)}33;font-size:10px;">${a.recommendedAction}</span></td>
       </tr>
       ${detailRow}
@@ -1352,7 +1546,7 @@ function renderManagerView() {
     const repAccounts = ACCOUNTS.filter(a => a.repAssigned === rep);
     const vel = computeVelocityForAccounts(repAccounts);
     const pipeline = repAccounts.reduce((s,a) => s + a.dealSizeEstimate, 0);
-    const avgWin = Math.round(repAccounts.reduce((s,a) => s+a.probability,0)/repAccounts.length);
+    const avgWin = repAccounts.length > 0 ? Math.round(repAccounts.reduce((s,a) => s+a.probability,0)/repAccounts.length) : 0;
     const qualified = repAccounts.filter(a => ['Qualified','Proposal','Negotiation'].includes(a.opportunityStage)).length;
     return { rep, vel, pipeline, avgWin, qualified, count: repAccounts.length };
   });
@@ -1483,7 +1677,7 @@ function renderManagerView() {
 function renderInsights() {
   const closingSoon = ACCOUNTS.filter(a => a.leaseExpirationMonths <= 6 && a.probability >= 55).slice(0, 4);
   const competitive = ACCOUNTS.filter(a => a.competitorPresence && a.score >= 65).slice(0, 4);
-  const coldAccounts = ACCOUNTS.filter(a => a.lastContactDays > 21 && a.score >= 50).slice(0, 4);
+  const coldAccounts = ACCOUNTS.filter(a => a.lastContactDays > COLD_ACCOUNT_DAYS && a.score >= 50).slice(0, 4);
   const revenueRisk = ACCOUNTS.filter(a => a.printVolumeTrend === 'declining' && a.competitorPresence).slice(0, 4);
   const bestContact = ACCOUNTS.filter(a => a.lastContactDays <= 7 && a.score >= 60).slice(0, 3);
   const highTicket = ACCOUNTS.filter(a => a.serviceTicketFrequency === 'high' && a.customerSatisfactionScore <= 6).slice(0, 3);
@@ -1518,7 +1712,7 @@ function renderInsights() {
       priority: 'Medium',
       priorityColor: 'orange',
       title: 'Rep Activity Recommendations',
-      text: `${coldAccounts.length} high-value accounts have not been contacted in 21+ days. Re-engagement risk is elevated. Recommended: immediate outreach to prevent competitive encroachment.`,
+      text: `${coldAccounts.length} high-value accounts have not been contacted in ${COLD_ACCOUNT_DAYS}+ days. Re-engagement risk is elevated. Recommended: immediate outreach to prevent competitive encroachment.`,
       accounts: coldAccounts.map(a => a.accountName).join(', '),
       action: 'Assign contact tasks to reps in CRM by EOD today'
     },
@@ -1583,6 +1777,15 @@ function renderInsights() {
 // SIMULATION
 // ============================================================
 const SIM_BASELINE = computeVelocityForAccounts(ACCOUNTS);
+const SIM_DEFAULTS = {};
+
+function initSimDefaults() {
+  const ids = ['contactRate', 'qualityScore', 'competitivePressure', 'repActivity', 'marketDemand'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) SIM_DEFAULTS[id] = parseInt(el.getAttribute('value')) || parseInt(el.value);
+  });
+}
 
 function updateSimulation() {
   const cr = parseInt(document.getElementById('contactRate').value);
@@ -1598,8 +1801,13 @@ function updateSimulation() {
   document.getElementById('val-repActivity').textContent = ra + '%';
   document.getElementById('val-marketDemand').textContent = md + '%';
 
-  // Compute multiplier
-  const baselineMultiplier = (0.60 + 0.55 + 0.60 + 0.70 + 0.65) / 5;
+  // Compute multiplier from stored defaults
+  const dCR = (SIM_DEFAULTS.contactRate || 60) / 100;
+  const dQS = (SIM_DEFAULTS.qualityScore || 55) / 100;
+  const dCP = (1 - (SIM_DEFAULTS.competitivePressure || 40) / 100) * 0.6;
+  const dRA = (SIM_DEFAULTS.repActivity || 70) / 100;
+  const dMD = (SIM_DEFAULTS.marketDemand || 65) / 100;
+  const baselineMultiplier = (dCR + dQS + dCP + dRA + dMD) / 5;
   const currentMultiplier = (cr/100 + qs/100 + (1 - cp/100)*0.6 + ra/100 + md/100) / 5;
   const ratio = currentMultiplier / baselineMultiplier;
 
@@ -1639,6 +1847,23 @@ function updateSimulation() {
   });
   document.getElementById('simBars').innerHTML = barsHtml;
 
+  // Live narrative summary
+  let narrativeColor, narrativeBg, narrativeText;
+  if (ratio > 1.15) {
+    narrativeColor = 'var(--accent-green)';
+    narrativeBg = 'rgba(16,185,129,0.08)';
+    narrativeText = 'Excellent! With these parameters, the team is projected to <strong>exceed the target by ' + ((ratio - 1) * 100).toFixed(0) + '%</strong>. Current trajectory suggests ' + simBase.toFixed(1) + ' orders this month, well above the 9-order goal. Maintain momentum and focus on closing high-probability deals.';
+  } else if (ratio >= 0.95) {
+    narrativeColor = 'var(--accent-blue)';
+    narrativeBg = 'rgba(59,130,246,0.08)';
+    narrativeText = 'On track. The simulation shows the team is <strong>within target range</strong> with a projected ' + simBase.toFixed(1) + ' orders. Fine-tune contact rates and deal quality to push toward the upper end of the forecast.';
+  } else {
+    narrativeColor = 'var(--accent-red)';
+    narrativeBg = 'rgba(239,68,68,0.08)';
+    narrativeText = 'Below baseline. Current parameters project only <strong>' + simBase.toFixed(1) + ' orders</strong>, which is ' + Math.abs(delta).toFixed(1) + ' below the baseline of ' + SIM_BASELINE.base.toFixed(1) + '. Consider increasing rep activity and contact rates to recover lost velocity.';
+  }
+  document.getElementById('simNarrative').innerHTML = '<div style="border-left:3px solid ' + narrativeColor + ';background:' + narrativeBg + ';padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.6;color:var(--text-secondary);">' + narrativeText + '</div>';
+
   // Impact chart - show per-parameter contribution
   const params = [
     { label: 'Contact Rate', val: cr, baseline: 60 },
@@ -1668,6 +1893,103 @@ function updateSimulation() {
 }
 
 // ============================================================
+// AI CHAT PANEL
+// ============================================================
+let conversationHistory = [];
+
+function buildSystemPrompt() {
+  const filtered = getFilteredAccounts();
+  const vel = computeVelocityForAccounts(filtered);
+  const pipeline = filtered.length > 0 ? filtered.reduce((s,a) => s + a.dealSizeEstimate, 0) : 0;
+  const avgProb = filtered.length > 0 ? Math.round(filtered.reduce((s,a) => s + a.probability, 0) / filtered.length) : 0;
+  const top5 = filtered.slice(0, 5);
+  const top5Summary = top5.map(a => a.accountName + ' (Score:' + a.score + ', Prob:' + a.probability + '%, $' + a.dealSizeEstimate + 'K, Stage:' + a.opportunityStage + ', Rep:' + a.repAssigned + ', LastContact:' + a.lastContactDays + 'd)').join('\n');
+  const accountsJSON = JSON.stringify(filtered.map(a => ({name:a.accountName, score:a.score, probability:a.probability, deal:a.dealSizeEstimate, stage:a.opportunityStage, rep:a.repAssigned, lastContact:a.lastContactDays, lease:a.leaseExpirationMonths, industry:a.industry, competitor:a.competitorPresence, tickets:a.serviceTicketFrequency, csat:a.customerSatisfactionScore})));
+
+  return 'You are Aurasell AI, an intelligent sales assistant for Xerox CRM. You analyze account data and provide actionable sales recommendations.\n\n' +
+    'CURRENT DASHBOARD SUMMARY:\n' +
+    '- Viewing: ' + (currentRep === 'all' ? 'All Reps' : currentRep) + '\n' +
+    '- Total Accounts: ' + filtered.length + '\n' +
+    '- Predicted Orders (base): ' + vel.base.toFixed(1) + ' (target: 9)\n' +
+    '- Pipeline Value: $' + pipeline + 'K\n' +
+    '- Avg Win Probability: ' + avgProb + '%\n\n' +
+    'TOP 5 ACCOUNTS:\n' + top5Summary + '\n\n' +
+    'ALL ACCOUNTS DATA:\n' + accountsJSON + '\n\n' +
+    'Respond concisely and actionably. Use data from the accounts to back up your recommendations. Format with short paragraphs.';
+}
+
+function sendChip(text) {
+  document.getElementById('chatInput').value = text;
+  sendChatMessage();
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const starters = document.getElementById('chatStarters');
+  if (starters) starters.style.display = 'none';
+
+  const container = document.getElementById('chatMessages');
+  container.innerHTML += '<div class="chat-msg chat-msg-user">' + escapeHtml(msg) + '</div>';
+
+  conversationHistory.push({ role: 'user', content: msg });
+  if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+
+  const typingId = 'typing-' + Date.now();
+  container.innerHTML += '<div class="chat-msg chat-msg-ai" id="' + typingId + '"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+  container.scrollTop = container.scrollHeight;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: buildSystemPrompt(),
+        messages: conversationHistory
+      })
+    });
+
+    const typingEl = document.getElementById(typingId);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData.error?.message || ('API error: ' + response.status);
+      if (typingEl) typingEl.innerHTML = '<span style="color:var(--accent-red);">Error: ' + escapeHtml(errMsg) + '</span>';
+      conversationHistory.pop();
+      return;
+    }
+
+    const data = await response.json();
+    const aiText = data.content?.[0]?.text || 'No response received.';
+    conversationHistory.push({ role: 'assistant', content: aiText });
+    if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+
+    if (typingEl) typingEl.innerHTML = formatAIResponse(aiText);
+  } catch (err) {
+    const typingEl = document.getElementById(typingId);
+    if (typingEl) typingEl.innerHTML = '<span style="color:var(--accent-red);">Connection error. Please try again.</span>';
+    conversationHistory.pop();
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatAIResponse(text) {
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '</p><p style="margin-top:8px;">')
+    .replace(/\n/g, '<br>');
+}
+
+// ============================================================
 // TAB SWITCHING
 // ============================================================
 function switchTab(tabId, el) {
@@ -1692,6 +2014,7 @@ function filterByRep(val) {
   renderFunnel();
   renderTop10();
   renderRiskMonitor();
+  renderUrgencyHeatmap();
 }
 
 // ============================================================
@@ -1716,6 +2039,8 @@ function init() {
     renderFunnel();
     renderTop10();
     renderRiskMonitor();
+    renderUrgencyHeatmap();
+    initSimDefaults();
   }, 800);
 
   // Refresh timestamp
